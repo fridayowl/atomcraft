@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     neo4j_password: str = "password"
     redis_url: str = "redis://localhost:6379/0"
     openai_api_key: str = ""
+    mp_api_key: str = ""
     secret_key: str = "aion-secret-key-change-in-production"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 1440

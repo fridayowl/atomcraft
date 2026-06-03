@@ -8,6 +8,7 @@ import { Generator } from './pages/Generator'
 import { Experiments } from './pages/Experiments'
 import { Predictor } from './pages/Predictor'
 import { Chat } from './pages/Chat'
+import { Discover } from './pages/Discover'
 
 function AppLayout() {
   const { user, loading } = useAuth()
@@ -38,6 +39,7 @@ function AppLayout() {
           <Route path="/generator" element={<Generator />} />
           <Route path="/predict" element={<Predictor />} />
           <Route path="/experiments" element={<Experiments />} />
+          <Route path="/discover" element={<Discover />} />
           <Route path="/chat" element={<Chat />} />
         </Routes>
       </main>

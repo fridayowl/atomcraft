@@ -5,6 +5,7 @@ const navItems = [
   { path: '/', label: 'Dashboard', icon: '◈' },
   { path: '/materials', label: 'Materials', icon: '⬡' },
   { path: '/generator', label: 'Generator', icon: '✦' },
+  { path: '/discover', label: 'Discover', icon: '🔬' },
   { path: '/predict', label: 'Predict', icon: '▦' },
   { path: '/experiments', label: 'Experiments', icon: '⚗' },
   { path: '/chat', label: 'AION Chat', icon: '✦' },
