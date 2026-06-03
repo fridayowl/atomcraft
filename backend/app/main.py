@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
-from app.api import materials, generation, prediction, synthesis, experiments, chat, auth
+from app.api import materials, generation, prediction, synthesis, experiments, chat, auth, api_keys, reports, subscriptions, screening, characterization, phase_diagram
 
 Base.metadata.create_all(bind=engine)
 
@@ -26,6 +26,12 @@ app.include_router(synthesis.router)
 app.include_router(experiments.router)
 app.include_router(chat.router)
 app.include_router(auth.router)
+app.include_router(api_keys.router)
+app.include_router(reports.router)
+app.include_router(subscriptions.router)
+app.include_router(screening.router)
+app.include_router(characterization.router)
+app.include_router(phase_diagram.router)
 
 
 @app.get("/")

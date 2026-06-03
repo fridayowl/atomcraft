@@ -1,3 +1,4 @@
+import re
 import numpy as np
 from typing import Optional
 
@@ -40,14 +41,41 @@ ELEMENT_DATA = {
     "W": {"radius": 1.93, "en": 2.36, "mass": 183.84, "valence": 6, "group": 6},
     "Pt": {"radius": 1.77, "en": 2.28, "mass": 195.08, "valence": 10, "group": 10},
     "Au": {"radius": 1.74, "en": 2.54, "mass": 196.97, "valence": 11, "group": 11},
-    "Pb": {"radius": 1.54, "en": 2.33, "mass": 207.20, "valence": 4, "group": 14},
-    "Bi": {"radius": 1.43, "en": 2.02, "mass": 208.98, "valence": 5, "group": 15},
+    "Pb": {"radius": 1.54, "en": 2.33, "mass": 207.20, "valence": 14, "group": 14},
+    "Bi": {"radius": 1.43, "en": 2.02, "mass": 208.98, "valence": 15, "group": 15},
+    "La": {"radius": 2.50, "en": 1.10, "mass": 138.91, "valence": 3, "group": 3},
+    "Ce": {"radius": 2.48, "en": 1.12, "mass": 140.12, "valence": 4, "group": 3},
+    "Nd": {"radius": 2.45, "en": 1.14, "mass": 144.24, "valence": 3, "group": 3},
+    "Gd": {"radius": 2.38, "en": 1.20, "mass": 157.25, "valence": 3, "group": 3},
+    "Er": {"radius": 2.34, "en": 1.24, "mass": 167.26, "valence": 3, "group": 3},
+    "Ga": {"radius": 1.24, "en": 1.81, "mass": 69.72, "valence": 3, "group": 13},
+    "Ge": {"radius": 1.21, "en": 2.01, "mass": 72.63, "valence": 4, "group": 14},
+    "As": {"radius": 1.14, "en": 2.18, "mass": 74.92, "valence": 5, "group": 15},
+    "Se": {"radius": 1.03, "en": 2.55, "mass": 78.97, "valence": 6, "group": 16},
+    "Br": {"radius": 0.94, "en": 2.96, "mass": 79.90, "valence": 7, "group": 17},
+    "I": {"radius": 1.15, "en": 2.66, "mass": 126.90, "valence": 7, "group": 17},
+    "Ru": {"radius": 1.78, "en": 2.20, "mass": 101.07, "valence": 8, "group": 8},
+    "Rh": {"radius": 1.73, "en": 2.28, "mass": 102.91, "valence": 9, "group": 9},
+    "Pd": {"radius": 1.69, "en": 2.20, "mass": 106.42, "valence": 10, "group": 10},
+    "Ag": {"radius": 1.65, "en": 1.93, "mass": 107.87, "valence": 11, "group": 11},
+    "Cd": {"radius": 1.61, "en": 1.69, "mass": 112.41, "valence": 12, "group": 12},
+    "In": {"radius": 1.44, "en": 1.78, "mass": 114.82, "valence": 3, "group": 13},
+    "Hf": {"radius": 2.16, "en": 1.30, "mass": 178.49, "valence": 4, "group": 4},
+    "Re": {"radius": 1.88, "en": 1.90, "mass": 186.21, "valence": 7, "group": 7},
+    "Os": {"radius": 1.85, "en": 2.20, "mass": 190.23, "valence": 8, "group": 8},
+    "Ir": {"radius": 1.80, "en": 2.20, "mass": 192.22, "valence": 9, "group": 9},
 }
 
 
 class CompositionAnalyzer:
     def parse_formula(self, formula: str) -> dict[str, float]:
-        import re
+        try:
+            from pymatgen.core import Composition as PMGComposition
+            comp = PMGComposition(formula)
+            return {str(el): float(amt) for el, amt in comp.as_dict().items() if float(amt) > 0}
+        except Exception:
+            pass
+
         pattern = r'([A-Z][a-z]*)(\d*\.?\d*)'
         matches = re.findall(pattern, formula)
         composition = {}
@@ -62,6 +90,9 @@ class CompositionAnalyzer:
         if composition is None:
             composition = self.parse_formula(formula)
 
+        if not composition:
+            return {"formula": formula, "elements": [], "n_elements": 0}
+
         elements = list(composition.keys())
         amounts = list(composition.values())
         total = sum(amounts)
@@ -72,27 +103,44 @@ class CompositionAnalyzer:
         masses = []
         valences = []
         groups = []
-
+        missing = 0
         for el in elements:
-            data = ELEMENT_DATA.get(el, {"radius": 1.5, "en": 1.5, "mass": 50.0, "valence": 3, "group": 10})
-            radii.append(data["radius"])
-            ens.append(data["en"])
-            masses.append(data["mass"])
-            valences.append(data["valence"])
-            groups.append(data["group"])
+            data = ELEMENT_DATA.get(el)
+            if data:
+                radii.append(data["radius"])
+                ens.append(data["en"])
+                masses.append(data["mass"])
+                valences.append(data["valence"])
+                groups.append(data["group"])
+            else:
+                missing += 1
+                radii.append(1.5)
+                ens.append(1.5)
+                masses.append(50.0)
+                valences.append(3)
+                groups.append(10)
 
-        avg_radius = np.average(radii, weights=fractions)
-        avg_en = np.average(ens, weights=fractions)
-        avg_mass = np.average(masses, weights=fractions)
-        avg_valence = np.average(valences, weights=fractions)
+        avg_radius = float(np.average(radii, weights=fractions))
+        avg_en = float(np.average(ens, weights=fractions))
+        avg_mass = float(np.average(masses, weights=fractions))
+        avg_valence = float(np.average(valences, weights=fractions))
+        en_diff = float(np.max(ens) - np.min(ens)) if len(ens) > 1 else 0
+        radius_diff = float(np.max(radii) - np.min(radii)) if len(radii) > 1 else 0
 
-        en_diff = np.max(ens) - np.min(ens) if len(ens) > 1 else 0
-        radius_diff = np.max(radii) - np.min(radii) if len(radii) > 1 else 0
+        transition_metals = {"Sc","Ti","V","Cr","Mn","Fe","Co","Ni","Cu","Zn","Y","Zr","Nb","Mo","Tc","Ru","Rh","Pd","Ag","Cd","Hf","Ta","W","Re","Os","Ir","Pt","Au"}
+        has_tm = any(el in transition_metals for el in elements)
 
-        desc = {
+        from app.core.trainer import predict_property
+        _band_gap, _ = predict_property(formula, "band_gap")
+        _formation_energy, _ = predict_property(formula, "formation_energy")
+        _density, _ = predict_property(formula, "density")
+
+        return {
             "formula": formula,
             "elements": elements,
             "n_elements": len(elements),
+            "has_oxygen": "O" in elements,
+            "has_transition_metal": has_tm,
             "avg_atomic_radius": round(avg_radius, 3),
             "avg_electronegativity": round(avg_en, 3),
             "avg_atomic_mass": round(avg_mass, 3),
@@ -100,16 +148,10 @@ class CompositionAnalyzer:
             "electronegativity_range": round(en_diff, 3),
             "radius_range": round(radius_diff, 3),
             "total_atoms": round(total),
+            "predicted_band_gap": _band_gap,
+            "predicted_formation_energy": _formation_energy,
+            "predicted_density": _density,
         }
 
-        desc["predicted_band_gap"] = round(
-            float(max(0, avg_en * 0.8 - radius_diff * 0.3 + np.random.normal(0, 0.2))), 3
-        )
-        desc["predicted_formation_energy"] = round(
-            float(-avg_en * 0.5 + en_diff * 0.3 + np.random.normal(0, 0.1)), 3
-        )
-        desc["predicted_density"] = round(
-            float(avg_mass / (avg_radius ** 3 * 4.19 * total * 0.6) * 10), 3
-        )
-
-        return desc
+    def compute_descriptors(self, composition: dict) -> dict:
+        return self.get_descriptors("", composition)
