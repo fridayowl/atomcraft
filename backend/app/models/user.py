@@ -1,5 +1,5 @@
 import datetime
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -17,9 +17,6 @@ class User(Base):
     orcid = Column(String(50))
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)
-    subscription_tier = Column(String(50), default="free")
-    predictions_used_this_month = Column(Integer, default=0)
-    dft_credits_used_this_month = Column(Integer, default=0)
     api_key = Column(String(255), unique=True, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
@@ -35,7 +32,6 @@ class Team(Base):
     description = Column(String(500))
     owner_id = Column(Integer, ForeignKey("users.id"))
     max_members = Column(Integer, default=10)
-    subscription_tier = Column(String(50), default="free")
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     members = relationship("TeamMember", back_populates="team", cascade="all, delete-orphan")
@@ -54,15 +50,3 @@ class TeamMember(Base):
     user = relationship("User", back_populates="team_memberships")
 
 
-class Subscription(Base):
-    __tablename__ = "subscriptions"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
-    tier = Column(String(50))
-    stripe_subscription_id = Column(String(255))
-    status = Column(String(50), default="active")
-    current_period_start = Column(DateTime)
-    current_period_end = Column(DateTime)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)

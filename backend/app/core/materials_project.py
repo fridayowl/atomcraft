@@ -1,37 +1,34 @@
-import httpx
-from typing import Optional, Any
+from typing import Optional
 from app.config import settings
 
 
-MP_API_BASE = "https://api.materialsproject.org"
 MP_API_KEY_ENV = "MP_API_KEY"
 
 
 def get_mp_api_key() -> Optional[str]:
     import os
-    return os.getenv(MP_API_KEY_ENV) or settings.openai_api_key or None
+    return os.getenv(MP_API_KEY_ENV) or None
 
 
 class MaterialsProjectClient:
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or get_mp_api_key()
-        self._client: Optional[httpx.AsyncClient] = None
+        self._mprester = None
         if self.api_key:
-            self._client = httpx.AsyncClient(
-                base_url=MP_API_BASE,
-                headers={"X-API-KEY": self.api_key},
-                timeout=30.0,
-            )
+            try:
+                from mp_api.client import MPRester
+                self._mprester = MPRester(api_key=self.api_key)
+            except ImportError:
+                self._mprester = None
 
-    async def _get(self, path: str, params: Optional[dict] = None) -> Optional[dict]:
-        if not self._client:
-            return None
-        try:
-            resp = await self._client.get(path, params=params)
-            resp.raise_for_status()
-            return resp.json()
-        except Exception:
-            return None
+    def _get_rester(self):
+        if not self._mprester and self.api_key:
+            try:
+                from mp_api.client import MPRester
+                self._mprester = MPRester(api_key=self.api_key)
+            except ImportError:
+                pass
+        return self._mprester
 
     async def search_materials(
         self,
@@ -42,11 +39,18 @@ class MaterialsProjectClient:
         num_chunks: int = 1,
         chunk_size: int = 100,
     ) -> list[dict]:
-        criteria: dict[str, Any] = {}
+        rester = self._get_rester()
+        if not rester:
+            return []
+
+        criteria = {}
         if formula:
             criteria["formula"] = formula
         if elements:
             criteria["elements"] = elements
+            criteria.setdefault("num_sites", (1, 50))
+        if not formula and not elements:
+            return []
         if property_max:
             for k, v in property_max.items():
                 criteria[f"{k}_max"] = v
@@ -55,42 +59,51 @@ class MaterialsProjectClient:
                 criteria[f"{k}_min"] = v
 
         all_results = []
-        for chunk in range(num_chunks):
-            params = {
-                "criteria": str(criteria) if criteria else None,
-                "chunk": str(chunk),
-                "_chunk_size": str(chunk_size),
-                "_fields": "material_id,formula_pretty,symmetry,crystal_system,band_gap,formation_energy_per_atom,volume,density,nsites,spacegroup",
-            }
-            data = await self._get("/v2/materials/core", params)
-            if data and "data" in data:
-                all_results.extend(data["data"])
+        try:
+            results = rester.materials.summary.search(
+                **criteria,
+                num_chunks=num_chunks,
+                chunk_size=chunk_size,
+                fields=["material_id", "formula_pretty", "symmetry",
+                        "band_gap", "formation_energy_per_atom", "volume", "density",
+                        "nsites"],
+            )
+            for r in results:
+                sym = getattr(r, "symmetry", None) or {}
+                if hasattr(sym, "model_dump"):
+                    sym = sym.model_dump()
+                entry = {
+                    "material_id": getattr(r, "material_id", None),
+                    "formula_pretty": getattr(r, "formula_pretty", None),
+                    "symmetry": sym,
+                    "band_gap": getattr(r, "band_gap", None),
+                    "formation_energy_per_atom": getattr(r, "formation_energy_per_atom", None),
+                    "volume": getattr(r, "volume", None),
+                    "density": getattr(r, "density", None),
+                    "nsites": getattr(r, "nsites", None),
+                }
+                all_results.append(entry)
+        except Exception as e:
+            print(f"MP search error: {e}")
+
         return all_results
 
-    async def get_structure(self, material_id: str) -> Optional[dict]:
-        data = await self._get(f"/v2/materials/{material_id}/structure")
-        return data
-
-    async def get_thermo_data(self, material_id: str) -> Optional[dict]:
-        data = await self._get(f"/v2/materials/{material_id}/thermo")
-        return data
-
-    async def get_xrd_pattern(self, material_id: str) -> Optional[dict]:
-        data = await self._get(f"/v2/materials/{material_id}/xrd")
-        return data
-
     async def is_available(self) -> bool:
-        if not self._client:
+        rester = self._get_rester()
+        if not rester:
             return False
         try:
-            resp = await self._client.get("/v2/materials/core", params={"_fields": "material_id", "_chunk_size": "1"})
-            return resp.status_code < 500
+            results = rester.materials.summary.search(chunk_size=1, fields=["material_id"])
+            return len(results) > 0
         except Exception:
             return False
 
     async def close(self):
-        if self._client:
-            await self._client.aclose()
+        if self._mprester:
+            try:
+                self._mprester.client.close()
+            except Exception:
+                pass
 
 
 mp_client = MaterialsProjectClient()

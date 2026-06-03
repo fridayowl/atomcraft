@@ -30,7 +30,6 @@ class UserResponse(BaseModel):
     full_name: Optional[str] = None
     affiliation: Optional[str] = None
     is_active: bool
-    subscription_tier: str
 
     model_config = {"from_attributes": True}
 

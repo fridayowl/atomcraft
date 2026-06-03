@@ -8,6 +8,61 @@ from app.models.material import Material, Property, Composition
 from app.models.prediction import Prediction
 from pydantic import BaseModel
 
+
+def _generate_structure(material):
+    try:
+        from pymatgen.core import Structure, Lattice
+        from pymatgen.io.cif import CifParser
+        import io
+
+        if material.cif_data:
+            parser = CifParser(io.StringIO(material.cif_data))
+            structure = parser.parse_structures()[0]
+        else:
+            elements = [c.element for c in material.compositions]
+            n = len(elements)
+            if n == 0:
+                return {"atoms": [], "lattice": {}}
+
+            lattice = Lattice.from_parameters(
+                material.lattice_a or 5.0,
+                material.lattice_b or 5.0,
+                material.lattice_c or 5.0,
+                material.lattice_alpha or 90.0,
+                material.lattice_beta or 90.0,
+                material.lattice_gamma or 90.0,
+            )
+            frac_coords = []
+            species = []
+            for i, el in enumerate(elements):
+                frac_coords.append([(i % 4) / 4.0, ((i // 4) % 4) / 4.0, (i // 16) / 4.0])
+                species.append(el)
+            structure = Structure(lattice, species, frac_coords)
+
+        result = []
+        for i, site in enumerate(structure):
+            result.append({
+                "element": str(site.specie.symbol),
+                "x": round(float(site.frac_coords[0]), 6),
+                "y": round(float(site.frac_coords[1]), 6),
+                "z": round(float(site.frac_coords[2]), 6),
+                "radius": round(float(structure.lattice.a) * 0.3, 4),
+            })
+
+        return {
+            "atoms": result,
+            "lattice": {
+                "a": round(float(structure.lattice.a), 4),
+                "b": round(float(structure.lattice.b), 4),
+                "c": round(float(structure.lattice.c), 4),
+                "alpha": round(float(structure.lattice.alpha), 2),
+                "beta": round(float(structure.lattice.beta), 2),
+                "gamma": round(float(structure.lattice.gamma), 2),
+            },
+        }
+    except Exception:
+        return None
+
 router = APIRouter(prefix="/api/materials", tags=["materials"])
 
 
@@ -70,6 +125,7 @@ def list_materials(
     for m in materials:
         props = {p.property_type: {"value": p.value, "unit": p.unit} for p in m.properties}
         comp = {c.element: c.atomic_fraction for c in m.compositions}
+        elements = [c.element for c in m.compositions] if m.compositions else []
         results.append({
             "id": m.id,
             "formula": m.formula,
@@ -85,6 +141,7 @@ def list_materials(
             "density": m.density,
             "properties": props,
             "composition": comp,
+            "elements": elements,
             "mp_id": m.mp_id,
             "tags": m.tags,
             "created_at": m.created_at.isoformat() if m.created_at else None,
@@ -106,6 +163,9 @@ def get_material(material_id: int, db: Session = Depends(get_db)):
     phases = [{"name": p.phase_name, "temp_min": p.temperature_min, "temp_max": p.temperature_max,
                "stability": p.stability} for p in material.phases]
 
+    structure = _generate_structure(material)
+    elements = [c.element for c in material.compositions] if material.compositions else []
+
     return {
         "id": material.id,
         "formula": material.formula,
@@ -123,6 +183,8 @@ def get_material(material_id: int, db: Session = Depends(get_db)):
         "properties": props,
         "composition": comp,
         "phases": phases,
+        "elements": elements,
+        "structure": structure,
         "mp_id": material.mp_id,
         "tags": material.tags,
         "created_at": material.created_at.isoformat() if material.created_at else None,

@@ -131,9 +131,10 @@ class CompositionAnalyzer:
         has_tm = any(el in transition_metals for el in elements)
 
         from app.core.trainer import predict_property
-        _band_gap, _ = predict_property(formula, "band_gap")
-        _formation_energy, _ = predict_property(formula, "formation_energy")
-        _density, _ = predict_property(formula, "density")
+        formula_for_pred = formula if formula else "-".join(sorted(elements))
+        _band_gap, _ = predict_property(formula_for_pred, "band_gap")
+        _formation_energy, _ = predict_property(formula_for_pred, "formation_energy")
+        _density, _ = predict_property(formula_for_pred, "density")
 
         return {
             "formula": formula,

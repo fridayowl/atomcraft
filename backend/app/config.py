@@ -7,10 +7,11 @@ class Settings(BaseSettings):
     debug: bool = True
     database_url: str = os.getenv(
         "DATABASE_URL",
-        "postgresql://aion:aion_pass@localhost:5432/aion"
-        if os.path.exists("/.dockerenv")
+        "postgresql+psycopg2://aion:aion_pass@db:5432/aion"
+        if os.getenv("DOCKER_ENV") == "true"
         else "sqlite:///./aion.db",
     )
+    docker_env: bool = os.getenv("DOCKER_ENV") == "true"
     neo4j_uri: str = "bolt://localhost:7687"
     neo4j_user: str = "neo4j"
     neo4j_password: str = "password"
@@ -19,11 +20,6 @@ class Settings(BaseSettings):
     secret_key: str = "aion-secret-key-change-in-production"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 1440
-    dft_pricing_per_calc: float = 0.05
-    free_predictions_per_month: int = 10
-    pro_predictions_per_month: int = 500
-    pro_dft_credits_per_month: int = 50
-
     model_config = {"env_file": ".env"}
 
 

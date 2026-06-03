@@ -237,7 +237,8 @@ export function Materials() {
                 <div className="glass-light rounded-lg p-4">
                   <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">3D Structure</h3>
                   <CrystalViewer
-                    elements={Object.keys(selected.composition || {})}
+                    structure={(selected as any).structure}
+                    elements={(selected as any).elements || Object.keys(selected.composition || {})}
                     latticeParameters={selected.lattice_parameters}
                   />
                 </div>

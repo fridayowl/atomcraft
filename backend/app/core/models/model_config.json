@@ -5,7 +5,7 @@
     "max_depth": 15,
     "mae": 0.2507,
     "r2": 0.7645,
-    "path": "/Users/shinojcm/MaterialDiscovery/backend/app/core/models/band_gap.joblib"
+    "path": "/Users/shinojcm/MaterialDiscovery/backend/scripts/../app/core/models/band_gap.joblib"
   },
   "formation_energy": {
     "model": "RandomForestRegressor",
@@ -13,7 +13,7 @@
     "max_depth": 15,
     "mae": 0.1291,
     "r2": 0.8622,
-    "path": "/Users/shinojcm/MaterialDiscovery/backend/app/core/models/formation_energy.joblib"
+    "path": "/Users/shinojcm/MaterialDiscovery/backend/scripts/../app/core/models/formation_energy.joblib"
   },
   "density": {
     "model": "RandomForestRegressor",
@@ -21,6 +21,6 @@
     "max_depth": 15,
     "mae": 0.3162,
     "r2": 0.996,
-    "path": "/Users/shinojcm/MaterialDiscovery/backend/app/core/models/density.joblib"
+    "path": "/Users/shinojcm/MaterialDiscovery/backend/scripts/../app/core/models/density.joblib"
   }
 }
