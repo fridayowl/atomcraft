@@ -3,9 +3,9 @@
     "model": "RandomForestRegressor",
     "n_estimators": 300,
     "max_depth": 20,
-    "mae": 0.1768,
-    "r2": 0.9371,
-    "n_real": 104845,
+    "mae": 0.1766,
+    "r2": 0.938,
+    "n_real": 104851,
     "path": "formation_energy.joblib"
   },
   "density": {
@@ -21,9 +21,9 @@
     "model": "RandomForestRegressor",
     "n_estimators": 300,
     "max_depth": 20,
-    "mae": 0.7334,
-    "r2": 0.5923,
-    "n_real": 52605,
+    "mae": 0.7291,
+    "r2": 0.5974,
+    "n_real": 52611,
     "path": "band_gap.joblib"
   },
   "energy_above_hull": {

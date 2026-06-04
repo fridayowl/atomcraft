@@ -1,0 +1,70 @@
+======================================================================
+ATOMCRAFT MATERIALS DISCOVERY DEMO
+Exploring novel cathode materials in Li-Ni-Mn-Co-O space
+======================================================================
+
+[1] Generating novel cathode candidates (Li-Ni-Mn-Co-O)...
+   Generated 15 candidates in 17.1s
+
+[2] Predicting properties...
+   Predicted 15 candidates in 33.0s
+
+   Top 5 most stable (most negative formation energy):
+   Formula                   SpG        Gap(eV)    E_form(eV)   Density    Score   
+   ------------------------- ---------- ---------- ------------ ---------- --------
+   Mn3Ni4                    Pnma       0.467      -0.039       8.176      0.987   
+   Mn3Ni4Co2Li               P4m2       0.434      -0.105       7.084      0.971   
+   Mn4Co4Ni4Li               Imm2       0.414      -0.156       7.001      0.975   
+   O3Ni3Co2                  Pmmn       0.675      -0.340       6.328      0.930   
+   CoMn4O                    P6/mmm     0.848      -0.612       7.065      0.872   
+
+   Top 5 highest band gap:
+   Formula                   SpG        Gap(eV)    E_form(eV)   Density   
+   ------------------------- ---------- ---------- ------------ ----------
+   Li2O3                     P-1        3.312      -0.867       2.548     
+   O3Li                      Imm2       1.992      -0.639       3.219     
+   NiLi2O                    Pbcm       1.185      -1.518       3.279     
+   NiMnLiCo3O3               I4m2       0.990      -1.801       5.409     
+   Mn2Ni2O4CoLi              P222       0.957      -1.583       5.575     
+
+[3] Substitution-based generation from known templates...
+   Generated 10 substitution candidates
+   Na58Li26NCa38             subst=Ba->Ca          gap=1.423 eV  E_form=-0.317 eV/atom
+   MnBi11Ca14                subst=Sr->Ca          gap=0.280 eV  E_form=-0.148 eV/atom
+   MnSb11Ca14                subst=Ba->Ca          gap=0.422 eV  E_form=-0.184 eV/atom
+   La31(CoI12)5Rb4           subst=Na->Rb          gap=0.752 eV  E_form=-1.198 eV/atom
+   Y8SiS11O48Li2             subst=Na->Li          gap=2.385 eV  E_form=-2.228 eV/atom
+
+[4] Feature importance analysis for cathode-relevant properties:
+
+   band_gap (top 5 of 32 features):
+     electronegativity_std         : 0.0811
+     radius_range                  : 0.0777
+     ionization_energy_range       : 0.0707
+     avg_row                       : 0.0693
+     has_transition_metal          : 0.0690
+
+   formation_energy (top 5 of 28 features):
+     electronegativity_range       : 0.6283
+     avg_electronegativity         : 0.0602
+     avg_group                     : 0.0396
+     total_atoms                   : 0.0378
+     avg_atomic_radius             : 0.0352
+
+[5] Generating VASP inputs for best candidate: Mn3Ni4...
+   INCAR: 15 lines
+   KPOINTS: 4 lines
+   POSCAR: 10 lines
+
+[6] Active learning iteration (pseudo-validation)...
+
+   Validated: 3
+
+======================================================================
+DEMO COMPLETE
+======================================================================
+Total candidates generated:      25
+Total data points predicted:     75
+Models contributing:             11 trained RandomForest models
+Most stable candidate:           Mn3Ni4 (E_form=-0.039 eV/atom)
+Highest band gap candidate:      Li2O3 (3.312 eV)
