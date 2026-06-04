@@ -1,110 +1,171 @@
-import os
-import json
+import os, json
 from typing import Optional
 import numpy as np
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, r2_score
 import joblib
 
 MODELS_DIR = os.path.join(os.path.dirname(__file__), "models")
-N_FEATURES = 17  # 10 composition + 1 volume + 6 crystal_system onehot
-
 CRYSTAL_SYSTEMS = ["cubic", "tetragonal", "hexagonal", "orthorhombic", "monoclinic", "triclinic"]
-
-
-def _generate_training_data(n_samples: int = 5000) -> tuple[np.ndarray, dict[str, np.ndarray]]:
-    np.random.seed(42)
-    n_feat = 10 + 1 + len(CRYSTAL_SYSTEMS)
-    X = np.zeros((n_samples, n_feat))
-
-    n_elements = np.random.randint(1, 6, n_samples)
-    has_o = np.random.choice([0, 1], n_samples)
-    has_tm = np.random.choice([0, 1], n_samples)
-    avg_en = np.random.uniform(0.8, 4.0, n_samples)
-    en_range = np.random.uniform(0, 3.0, n_samples)
-    avg_radius = np.random.uniform(0.4, 2.7, n_samples)
-    radius_range = np.random.uniform(0, 2.0, n_samples)
-    avg_mass = np.random.uniform(1, 210, n_samples)
-    avg_valence = np.random.uniform(1, 12, n_samples)
-    total_atoms = np.random.randint(1, 30, n_samples) * 4
-
-    X[:, 0] = n_elements
-    X[:, 1] = has_o
-    X[:, 2] = has_tm
-    X[:, 3] = avg_en
-    X[:, 4] = en_range
-    X[:, 5] = avg_radius
-    X[:, 6] = radius_range
-    X[:, 7] = avg_mass
-    X[:, 8] = avg_valence
-    X[:, 9] = total_atoms
-    # structural features (10+)
-    X[:, 10] = np.random.uniform(2, 8, n_samples)
-    for i in range(len(CRYSTAL_SYSTEMS)):
-        X[:, 11 + i] = np.random.choice([0, 1], n_samples, p=[0.7, 0.3])
-
-    band_gap = np.maximum(0, avg_en * 0.6 - avg_radius * 0.1 + np.random.normal(0, 0.3, n_samples))
-    band_gap = np.clip(band_gap, 0, 12)
-
-    formation_energy = -avg_en * 0.4 + en_range * 0.2 - n_elements * 0.05 + np.random.normal(0, 0.15, n_samples)
-    formation_energy = np.clip(formation_energy, -5, 2)
-
-    density = avg_mass / (avg_radius ** 3 * 2.5) * 2 + np.random.normal(0, 0.5, n_samples)
-    density = np.clip(density, 0.5, 25)
-
-    targets = {
-        "band_gap": band_gap,
-        "formation_energy": formation_energy,
-        "density": density,
-    }
-
-    return X, targets
 
 
 def _get_element_feature_vector(formula: str, crystal_system: str = "",
                                 volume: float = 0) -> np.ndarray:
-    from app.core.composition_analyzer import CompositionAnalyzer, ELEMENT_DATA
-    analyzer = CompositionAnalyzer()
-    comp = analyzer.parse_formula(formula)
-    elements = list(comp.keys())
-    total = sum(comp.values())
-    fractions = [v / total for v in comp.values()]
+    from collections import Counter
+    from pymatgen.core.periodic_table import Element
+    from pymatgen.core.composition import Composition
 
+    try:
+        comp = Composition(formula)
+        elements = list(comp.elements)
+        fractions = [comp.get_atomic_fraction(e) for e in elements]
+    except Exception:
+        return np.zeros(56)
+
+    n = len(elements)
+    has_o = any(e.symbol == "O" for e in elements)
+    has_tm = any(getattr(e, "is_transition_metal", False) for e in elements)
+    total_atoms = int(comp.num_atoms)
+
+    groups = []
+    rows = []
     radii = []
     ens = []
     masses = []
     valences = []
+    ion_ens = []
+    s_elec, p_elec, d_elec, f_elec = 0, 0, 0, 0
+    n_metal, n_nonmetal, n_metalloid = 0, 0, 0
+    n_alkali, n_alkaline, n_halogen, n_noble = 0, 0, 0, 0
+
     for el in elements:
-        data = ELEMENT_DATA.get(el, {"radius": 1.5, "en": 1.5, "mass": 50.0, "valence": 3})
-        radii.append(data["radius"])
-        ens.append(data["en"])
-        masses.append(data["mass"])
-        valences.append(data["valence"])
+        sym = el.symbol
+        groups.append(el.group or 0)
+        rows.append(el.row or 0)
+        radii.append(el.atomic_radius or 1.5)
+        ens.append(el.X or 1.5)
+        masses.append(el.atomic_mass or 50)
+        ie_list = el.ionization_energies or [0]
+        v = max(ie_list)
+        ion_ens.append(v if v and v > 0 else 0)
 
-    transition_metals = {"Sc","Ti","V","Cr","Mn","Fe","Co","Ni","Cu","Zn","Y","Zr","Nb","Mo","Tc","Ru","Rh","Pd","Ag","Cd","Hf","Ta","W","Re","Os","Ir","Pt","Au"}
+        try:
+            el_s, el_p, el_d, el_f = 0, 0, 0, 0
+            for orbital, count in el.full_electronic_structure:
+                o = orbital.lower()
+                if "s" in o: el_s += count
+                elif "p" in o: el_p += count
+                elif "d" in o: el_d += count
+                elif "f" in o: el_f += count
+            s_elec += el_s; p_elec += el_p; d_elec += el_d; f_elec += el_f
+        except Exception:
+            pass
 
+        if getattr(el, "is_metal", False): n_metal += 1
+        elif getattr(el, "is_metalloid", False): n_metalloid += 1
+        else: n_nonmetal += 1
+
+        if getattr(el, "is_alkali", False): n_alkali += 1
+        if getattr(el, "is_alkaline", False): n_alkaline += 1
+        if getattr(el, "is_halogen", False): n_halogen += 1
+        if getattr(el, "is_noble_gas", False): n_noble += 1
+
+    if len(valences) < n:
+        valences = [e.average_ionic_radius or 0 for e in elements]
+    if not any(valences):
+        valences = [e.group or 0 for e in elements]
+
+    w = fractions
     base = np.array([
-        len(elements),
-        1 if "O" in elements else 0,
-        1 if any(el in transition_metals for el in elements) else 0,
-        np.average(ens, weights=fractions),
-        np.max(ens) - np.min(ens) if len(ens) > 1 else 0,
-        np.average(radii, weights=fractions),
-        np.max(radii) - np.min(radii) if len(radii) > 1 else 0,
-        np.average(masses, weights=fractions),
-        np.average(valences, weights=fractions),
-        total,
+        n, has_o, has_tm, total_atoms,
+        np.average(groups, weights=w), max(groups) - min(groups) if len(groups) > 1 else 0,
+        np.average(rows, weights=w), max(rows) - min(rows) if len(rows) > 1 else 0,
+        np.average(radii, weights=w), max(radii) - min(radii) if len(radii) > 1 else 0,
+        np.std(radii) if len(radii) > 1 else 0,
+        np.average(ens, weights=w), max(ens) - min(ens) if len(ens) > 1 else 0,
+        np.std(ens) if len(ens) > 1 else 0,
+        np.average(masses, weights=w), max(masses) - min(masses) if len(masses) > 1 else 0,
+        np.std(masses) if len(masses) > 1 else 0,
+        np.average(ion_ens, weights=w) if any(ion_ens) else 0,
+        max(ion_ens) - min(ion_ens) if len(ion_ens) > 1 and any(ion_ens) else 0,
+        s_elec, p_elec, d_elec, f_elec,
+        n_metal, n_nonmetal, n_metalloid,
+        n_alkali, n_alkaline, n_halogen, n_noble,
     ])
 
     cs_onehot = np.zeros(len(CRYSTAL_SYSTEMS))
     if crystal_system and crystal_system.lower() in CRYSTAL_SYSTEMS:
-        idx = CRYSTAL_SYSTEMS.index(crystal_system.lower())
-        cs_onehot[idx] = 1
+        cs_onehot[CRYSTAL_SYSTEMS.index(crystal_system.lower())] = 1
 
     vol_feat = np.array([np.log(max(volume, 1))]) if volume > 0 else np.array([0.0])
 
-    return np.concatenate([base, vol_feat, cs_onehot])
+    vec = np.concatenate([base, vol_feat, cs_onehot])
+    return np.nan_to_num(vec, nan=0.0, posinf=0.0, neginf=0.0)
+
+
+def _generate_training_data(n_samples: int = 5000) -> tuple[np.ndarray, dict[str, np.ndarray]]:
+    np.random.seed(42)
+    n_feat = 56
+    X = np.zeros((n_samples, n_feat))
+    n_el = np.random.randint(1, 6, n_samples)
+    X[:, 0] = n_el
+    X[:, 1] = np.random.choice([0, 1], n_samples)  # has_O
+    X[:, 2] = np.random.choice([0, 1], n_samples)  # has_TM
+    X[:, 3] = np.random.randint(1, 50, n_samples) * 4  # total_atoms
+
+    X[:, 4] = np.random.uniform(1, 18, n_samples)  # avg group
+    X[:, 5] = np.random.uniform(0, 17, n_samples)  # group range
+    X[:, 6] = np.random.uniform(1, 7, n_samples)   # avg row
+    X[:, 7] = np.random.uniform(0, 6, n_samples)   # row range
+
+    X[:, 8] = np.random.uniform(0.4, 2.7, n_samples)    # avg radius
+    X[:, 9] = np.random.uniform(0, 2.3, n_samples)      # radius range
+    X[:, 10] = np.random.uniform(0, 1.0, n_samples)     # radius std
+    X[:, 11] = np.random.uniform(0.8, 4.0, n_samples)   # avg EN
+    X[:, 12] = np.random.uniform(0, 3.0, n_samples)     # EN range
+    X[:, 13] = np.random.uniform(0, 1.2, n_samples)     # EN std
+    X[:, 14] = np.random.uniform(1, 210, n_samples)     # avg mass
+    X[:, 15] = np.random.uniform(0, 200, n_samples)     # mass range
+    X[:, 16] = np.random.uniform(0, 80, n_samples)      # mass std
+
+    X[:, 17] = np.random.uniform(0, 25, n_samples)      # avg ioniz. energy
+    X[:, 18] = np.random.uniform(0, 24, n_samples)      # ioniz. range
+    X[:, 19] = np.random.uniform(0, 20, n_samples)      # s electrons
+    X[:, 20] = np.random.uniform(0, 30, n_samples)      # p electrons
+    X[:, 21] = np.random.uniform(0, 20, n_samples)      # d electrons
+    X[:, 22] = np.random.uniform(0, 14, n_samples)      # f electrons
+    X[:, 23] = np.random.uniform(0, 5, n_samples)       # n_metal
+    X[:, 24] = np.random.uniform(0, 5, n_samples)       # n_nonmetal
+    X[:, 25] = np.random.uniform(0, 3, n_samples)       # n_metalloid
+    X[:, 26] = np.random.uniform(0, 2, n_samples)       # n_alkali
+    X[:, 27] = np.random.uniform(0, 2, n_samples)       # n_alkaline
+    X[:, 28] = np.random.uniform(0, 2, n_samples)       # n_halogen
+    X[:, 29] = np.random.uniform(0, 1, n_samples)       # n_noble
+
+    X[:, 30] = np.random.uniform(2, 8, n_samples)
+    for i in range(6):
+        X[:, 31 + i] = np.random.choice([0, 1], n_samples, p=[0.7, 0.3])
+
+    avg_en = X[:, 11]
+    avg_radius = X[:, 8]
+    avg_mass = X[:, 14]
+
+    targets = {
+        "band_gap": np.clip(np.maximum(0, avg_en * 0.6 - avg_radius * 0.1 + np.random.normal(0, 0.3, n_samples)), 0, 12),
+        "formation_energy": np.clip(-avg_en * 0.4 + np.random.normal(0, 0.15, n_samples), -5, 2),
+        "density": np.clip(avg_mass / (avg_radius ** 3 * 2.5) * 2 + np.random.normal(0, 0.5, n_samples), 0.5, 25),
+        "energy_above_hull": np.clip(np.random.exponential(0.1, n_samples), 0, 5),
+        "total_magnetization": np.clip(np.random.exponential(1, n_samples), 0, 30),
+        "is_stable": np.random.choice([0, 1], n_samples, p=[0.3, 0.7]).astype(float),
+    }
+    return X, targets
+
+
+def _percentile_clip(arr: np.ndarray, low: float = 0.5, high: float = 99.5) -> np.ndarray:
+    """Clip extreme outliers at percentiles."""
+    lo, hi = np.percentile(arr, [low, high])
+    return np.clip(arr, lo, hi)
 
 
 def _load_real_training_data() -> tuple[dict[str, list[np.ndarray]], dict[str, list[float]]]:
@@ -112,33 +173,26 @@ def _load_real_training_data() -> tuple[dict[str, list[np.ndarray]], dict[str, l
         from app.database import SessionLocal
         from app.models.material import Material, Property
         from sqlalchemy.orm import joinedload
+        from collections import defaultdict
 
         db = SessionLocal()
-        materials = (
-            db.query(Material)
-            .options(joinedload(Material.properties))
-            .all()
-        )
-
+        materials = (db.query(Material).options(joinedload(Material.properties)).all())
         if not materials:
             db.close()
             return {}, {}
 
         all_features = {}
         for m in materials:
-            formula = m.formula
-            cs = m.crystal_system or ""
-            vol = m.volume or 0
-            all_features[m.id] = _get_element_feature_vector(formula, crystal_system=cs, volume=vol)
+            all_features[m.id] = _get_element_feature_vector(
+                m.formula, crystal_system=m.crystal_system or "", volume=m.volume or 0)
 
-        from collections import defaultdict
         targets = defaultdict(list)
         feature_maps = defaultdict(list)
 
         for m in materials:
-            if m.id not in all_features:
+            feats = all_features.get(m.id)
+            if feats is None:
                 continue
-            feats = all_features[m.id]
             props = {p.property_type: p.value for p in (m.properties or [])}
 
             if m.density is not None:
@@ -160,74 +214,66 @@ def _load_real_training_data() -> tuple[dict[str, list[np.ndarray]], dict[str, l
 
 def train_and_save_models(force_retrain: bool = False):
     os.makedirs(MODELS_DIR, exist_ok=True)
-
     config_path = os.path.join(MODELS_DIR, "model_config.json")
     if os.path.exists(config_path) and not force_retrain:
         return
 
     X_real_dict, targets_real = _load_real_training_data()
-
-    # sort by data count, put known properties first
     known_order = ["density", "band_gap", "formation_energy"]
     prop_names = sorted(targets_real.keys(), key=lambda p: (p not in known_order, -len(targets_real[p])))
 
     model_config = {}
     for prop_name in prop_names:
-        X_real = X_real_dict.get(prop_name, [])
-        y_real = targets_real.get(prop_name, [])
-        n_real = len(X_real)
-        print(f"{prop_name}: {n_real} real data points")
+        Xr = X_real_dict.get(prop_name, [])
+        yr = targets_real.get(prop_name, [])
+        n_real = len(Xr)
+        print(f"{prop_name}: {n_real} real data points", end="", flush=True)
 
-        if n_real < 50:
-            if prop_name in {"band_gap", "formation_energy", "density"}:
-                n_synth = max(2000, (50 - n_real) * 50)
-                X_synth, targets_synth = _generate_training_data(n_synth)
+        if n_real < 100:
+            if prop_name in {"band_gap", "formation_energy", "density",
+                             "energy_above_hull", "total_magnetization", "is_stable"}:
+                n_synth = max(2000, (100 - n_real) * 20)
+                X_s, targets_s = _generate_training_data(n_synth)
                 if n_real > 0:
-                    X = np.vstack([np.array(X_real), X_synth])
-                    y = np.concatenate([np.array(y_real), targets_synth[prop_name]])
+                    X = np.vstack([np.array(Xr), X_s])
+                    y = np.concatenate([np.array(yr), targets_s[prop_name]])
                 else:
-                    X = X_synth
-                    y = targets_synth[prop_name]
+                    X, y = X_s, targets_s[prop_name]
             else:
+                print(" — skipping (insufficient data)")
                 continue
         else:
-            X_arr = np.array(X_real)
-            y_arr = np.array(y_real)
-            # Clip outliers beyond 5 std
-            if len(y_arr) > 100:
-                mean, std = np.mean(y_arr), np.std(y_arr)
-                mask = np.abs(y_arr - mean) <= 5 * std
-                if np.sum(mask) > 50:
-                    X_arr, y_arr = X_arr[mask], y_arr[mask]
+            X_arr, y_arr = np.array(Xr), np.array(yr)
+            y_arr = _percentile_clip(y_arr, 0.5, 99.5)
+            mask = ~np.isnan(y_arr)
+            if np.sum(mask) > 50:
+                X_arr, y_arr = X_arr[mask], y_arr[mask]
             X, y = X_arr, y_arr
 
-        print(f"Training {prop_name} on {len(X)} samples...")
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        print(f" → {len(X)} samples")
 
-        model = RandomForestRegressor(n_estimators=300, max_depth=20, random_state=42)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        model = RandomForestRegressor(n_estimators=300, max_depth=20, random_state=42, n_jobs=-1)
         model.fit(X_train, y_train)
 
         y_pred = model.predict(X_test)
         mae = mean_absolute_error(y_test, y_pred)
         r2 = r2_score(y_test, y_pred)
 
-        model_path = os.path.join(MODELS_DIR, f"{prop_name}.joblib")
-        joblib.dump(model, model_path)
-
+        joblib.dump(model, os.path.join(MODELS_DIR, f"{prop_name}.joblib"))
         model_config[prop_name] = {
-            "model": "RandomForestRegressor",
-            "n_estimators": 300,
-            "max_depth": 20,
-            "mae": round(mae, 4),
-            "r2": round(r2, 4),
-            "n_real": n_real,
+            "model": "RandomForestRegressor", "n_estimators": 300, "max_depth": 20,
+            "mae": round(mae, 4), "r2": round(r2, 4), "n_real": n_real,
             "path": f"{prop_name}.joblib",
         }
-        print(f"  {prop_name}: MAE={mae:.4f}, R²={r2:.4f}")
+        print(f"  MAE={mae:.4f} R²={r2:.4f}")
 
     with open(config_path, "w") as f:
         json.dump(model_config, f, indent=2)
     print(f"Models saved to {MODELS_DIR}")
+
+    # Train space group classifier
+    train_space_group_classifier()
 
 
 def load_prediction_model(property_type: str):
@@ -242,192 +288,192 @@ def predict_property(formula: str, property_type: str,
     model = load_prediction_model(property_type)
     if model is not None:
         features = _get_element_feature_vector(formula, crystal_system, volume).reshape(1, -1)
-        pred = model.predict(features)[0]
-        return round(float(pred), 4), 0.85
-
-    from app.core.composition_analyzer import CompositionAnalyzer
-    analyzer = CompositionAnalyzer()
-    desc = analyzer.get_descriptors(formula)
-    key = f"predicted_{property_type}"
-    return round(float(desc.get(key, 0)), 4), 0.6
+        pred = float(model.predict(features)[0])
+        return round(pred, 4), 0.85
+    return 0, 0.0
 
 
 # ──────────────────────────────────────────
-# Space group + structure predictors
+# Space Group Predictor (230 groups)
 # ──────────────────────────────────────────
 
-CRYSTAL_SYSTEM_IDS = {
-    "cubic": 0, "tetragonal": 1, "orthorhombic": 2,
-    "hexagonal": 3, "trigonal": 4, "monoclinic": 5, "triclinic": 6,
-}
-CRYSTAL_SYSTEMS_LIST = list(CRYSTAL_SYSTEM_IDS.keys())
-
-TEMPLATE_SPG_CACHE = None
+SPG_DATA_CACHE = None
 
 
-def _load_space_group_data():
-    global TEMPLATE_SPG_CACHE
-    if TEMPLATE_SPG_CACHE is not None:
-        return TEMPLATE_SPG_CACHE
+def _load_spg_training_data():
+    global SPG_DATA_CACHE
+    if SPG_DATA_CACHE is not None:
+        return SPG_DATA_CACHE
     from app.database import SessionLocal
     from app.models.material import Material
     db = SessionLocal()
-    rows = db.query(Material.formula, Material.space_group, Material.crystal_system,
-                    Material.lattice_a, Material.lattice_b, Material.lattice_c).all()
+    rows = db.query(Material.formula, Material.space_group).all()
     db.close()
-    TEMPLATE_SPG_CACHE = rows
+    SPG_DATA_CACHE = rows
     return rows
 
 
-def train_crystal_system_predictor() -> tuple:
-    """Train a classifier to predict crystal system from composition."""
-    rows = _load_space_group_data()
-    from sklearn.ensemble import RandomForestClassifier
+_SPG_CACHE = None
+
+
+def _load_spg_cache():
+    global _SPG_CACHE
+    if _SPG_CACHE is None:
+        path = os.path.join(MODELS_DIR, "spg_cache.json")
+        if os.path.exists(path):
+            with open(path) as f:
+                _SPG_CACHE = json.load(f)
+        else:
+            _SPG_CACHE = {}
+    return _SPG_CACHE
+
+
+def _parse_spg_number(spg: str) -> int:
+    """Parse space group symbol or number to integer 1-230."""
+    if not spg:
+        return 0
+    if spg.lstrip("-").isdigit():
+        n = abs(int(spg))
+        return n if 1 <= n <= 230 else 0
+    cache = _load_spg_cache()
+    n = cache.get(spg, 0)
+    if n:
+        return n
+    # Fallback: try without hyphen
+    n = cache.get(spg.replace("-", ""), 0)
+    return n
+
+
+def _fast_feature_vector(formula: str) -> np.ndarray:
+    """Fast feature extraction using ELEMENT_DATA (no pymatgen overhead)."""
+    from app.core.composition_analyzer import CompositionAnalyzer, ELEMENT_DATA
+    analyzer = CompositionAnalyzer()
+    comp = analyzer.parse_formula(formula)
+    if not comp:
+        return np.zeros(20)
+    elements = list(comp.keys())
+    total = sum(comp.values())
+    fractions = [v / total for v in comp.values()]
+
+    radii, ens, masses, groups = [], [], [], []
+    for el in elements:
+        d = ELEMENT_DATA.get(el, {"radius": 1.5, "en": 1.5, "mass": 50.0, "valence": 3, "group": 1})
+        radii.append(d["radius"]); ens.append(d["en"]); masses.append(d["mass"]); groups.append(d.get("group", 1))
+
+    w = fractions
+    return np.array([
+        len(elements), 1 if "O" in elements else 0,
+        np.average(ens, weights=w), max(ens) - min(ens) if len(ens) > 1 else 0, np.std(ens) if len(ens) > 1 else 0,
+        np.average(radii, weights=w), max(radii) - min(radii) if len(radii) > 1 else 0, np.std(radii) if len(radii) > 1 else 0,
+        np.average(masses, weights=w), max(masses) - min(masses) if len(masses) > 1 else 0, np.std(masses) if len(masses) > 1 else 0,
+        np.average(groups, weights=w), max(groups) - min(groups) if len(groups) > 1 else 0,
+        total, sum(comp.values()),
+    ])
+
+
+def train_space_group_classifier():
+    rows = _load_spg_training_data()
+    from collections import Counter, defaultdict
+
+    label_counts = Counter()
+    for formula, spg in rows:
+        num = _parse_spg_number(spg)
+        if num >= 1:
+            label_counts[num] += 1
+
+    popular = {lbl for lbl, cnt in label_counts.items() if cnt >= 50}
+    if len(popular) < 5:
+        print(f"Space group classifier: only {len(popular)} groups — skipping"); return
+
+    by_label = defaultdict(list)
+    for formula, spg in rows:
+        num = _parse_spg_number(spg)
+        if num in popular:
+            by_label[num].append(formula)
+
     X, y = [], []
-    for formula, spg, cs, a, b, c in rows:
-        if not cs or cs not in CRYSTAL_SYSTEM_IDS:
-            continue
-        feat = _get_element_feature_vector(formula, crystal_system=cs, volume=(a or 5)*(b or 5)*(c or 5))
-        X.append(feat)
-        y.append(CRYSTAL_SYSTEM_IDS[cs])
-    X = np.array(X)
-    clf = RandomForestClassifier(n_estimators=200, max_depth=15, random_state=42)
+    for lbl, formulas in by_label.items():
+        for f in formulas[:300]:
+            X.append(_fast_feature_vector(f))
+            y.append(lbl)
+
+    X, y = np.array(X), np.array(y)
+    n_groups = len(set(y))
+
+    from sklearn.ensemble import RandomForestClassifier
+    clf = RandomForestClassifier(n_estimators=100, max_depth=18, random_state=42, n_jobs=-1)
     clf.fit(X, y)
-    path = os.path.join(MODELS_DIR, "crystal_system_classifier.joblib")
-    joblib.dump(clf, path)
     acc = clf.score(X, y)
-    print(f"Crystal system classifier: {acc:.3f} accuracy ({len(X)} samples)")
-    return clf
+    path = os.path.join(MODELS_DIR, "space_group_classifier.joblib")
+    joblib.dump(clf, path)
+    print(f"Space group classifier: {n_groups} groups, {len(X)} samples, {acc:.3f} accuracy")
 
 
-def predict_crystal_system(formula: str, volume: float = 0) -> tuple[str, float]:
-    path = os.path.join(MODELS_DIR, "crystal_system_classifier.joblib")
+def predict_space_group(formula: str) -> tuple[int, str, float]:
+    """Predict space group for a formula. Returns (number, symbol, confidence)."""
+    path = os.path.join(MODELS_DIR, "space_group_classifier.joblib")
     if not os.path.exists(path):
-        train_crystal_system_predictor()
+        train_space_group_classifier()
+    if not os.path.exists(path):
+        return 1, "P1", 0.0
     clf = joblib.load(path)
-    feat = _get_element_feature_vector(formula, volume=volume).reshape(1, -1)
-    proba = clf.predict_proba(feat)[0]
-    idx = int(np.argmax(proba))
-    confidence = float(proba[idx])
-    return CRYSTAL_SYSTEMS_LIST[idx], confidence
+    feat = _fast_feature_vector(formula).reshape(1, -1)
+    probs = clf.predict_proba(feat)[0]
+    idx = int(np.argmax(probs))
+    sg_number = int(clf.classes_[idx])
+    confidence = float(probs[idx])
+    cache = _load_spg_cache()
+    rev_cache = {v: k for k, v in cache.items()}
+    symbol = rev_cache.get(sg_number, f"{sg_number}")
+    return sg_number, symbol, confidence
 
 
-def predict_lattice_parameters(formula: str, crystal_system: str) -> dict:
-    """Predict lattice params from similar known structures in same system."""
-    rows = _load_space_group_data()
-    candidates = [r for r in rows if r[2] == crystal_system and r[3] is not None]
-    if not candidates:
-        return {"a": 5.0, "b": 5.0, "c": 5.0}
-    # Find materials with similar number of elements
-    feat = _parse_formula_counts(formula)
-    n_el = len(feat)
-    scored = [(abs(len(_parse_formula_counts(r[0])) - n_el), r) for r in candidates]
-    scored.sort(key=lambda x: x[0])
-    nearest = scored[:10]
-    avg_a = sum(r[3] for _, r in nearest) / len(nearest)
-    avg_b = sum(r[4] or r[3] for _, r in nearest) / len(nearest)
-    avg_c = sum(r[5] or r[3] for _, r in nearest) / len(nearest)
-    return {"a": round(avg_a, 3), "b": round(avg_b, 3), "c": round(avg_c, 3)}
+# ──────────────────────────────────────────
+# Structure Relaxation
+# ──────────────────────────────────────────
 
-
-def generate_crystal_structure(formula: str, space_group: str = "",
-                                crystal_system: str = "",
-                                lattice: Optional[dict] = None) -> Optional[dict]:
-    """Generate a full crystal structure using pymatgen from composition + symmetry."""
+def relax_structure(cif_string: str, force_field: str = "uff") -> Optional[dict]:
+    """Relax a crystal structure using a universal force field."""
     try:
         from pymatgen.core.structure import Structure
-        from pymatgen.core.lattice import Lattice
-        from pymatgen.core.composition import Composition
-        from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
+        from pymatgen.io.cif import CifParser
+        from io import StringIO
     except ImportError:
-        print("pymatgen required for structure generation")
         return None
 
-    if not crystal_system:
-        crystal_system, _ = predict_crystal_system(formula)
-    if not lattice:
-        lattice = predict_lattice_parameters(formula, crystal_system)
-    if not space_group:
-        spg_map = {
-            "cubic": "Pm-3m", "tetragonal": "I4/mmm",
-            "orthorhombic": "Pnma", "hexagonal": "P6_3/mmc",
-            "trigonal": "R-3m", "monoclinic": "P2_1/c",
-            "triclinic": "P1",
-        }
-        space_group = spg_map.get(crystal_system, "P1")
-
-    a, b, c = lattice.get("a", 5), lattice.get("b", 5), lattice.get("c", 5)
-    alpha = lattice.get("alpha", 90)
-    beta = lattice.get("beta", 90)
-    gamma = lattice.get("gamma", 90)
-    lat = Lattice.from_parameters(a, b, c, alpha, beta, gamma)
-    comp = Composition(formula)
-
-    # Find template in same space group from DB
-    rows = _load_space_group_data()
-    templates = [r for r in rows if r[1] == space_group and r[3] is not None]
-    if templates:
-        import random
-        tmpl = random.choice(templates)
-        tmpl_comp = Composition(tmpl[0])
-        tmpl_lat = Lattice.from_parameters(
-            tmpl[3] or a, tmpl[4] or b, tmpl[5] or c, 90, 90, 90)
-
-        # Create structure with template's atomic positions but new composition
-        from pymatgen.core.periodic_table import Element
-        tmpl_elements = [Element(e) for e in tmpl_comp.elements]
-        tmpl_frac_coords = [[0, 0, 0]]
-
-        if hasattr(tmpl_comp, "elements"):
-            tmpl_elements = list(tmpl_comp.elements)
-            tmpl_frac_coords = [[i / len(tmpl_elements), i / len(tmpl_elements), 0]
-                                for i in range(len(tmpl_elements))]
-
-        new_elements = [Element(e) for e in comp.elements]
-        new_frac_coords = [[i / len(new_elements), i / len(new_elements), 0]
-                           for i in range(len(new_elements))]
-        struct = Structure(lat, new_elements, new_frac_coords)
-    else:
-        # Place atoms at random positions in unit cell
-        from pymatgen.core.periodic_table import Element
-        elements = [Element(e) for e in comp.elements]
-        n = len(elements)
-        frac_coords = [[(i + 0.5) / n, (i + 0.5) / n, (i + 0.5) / n]
-                       for i in range(n)]
-        struct = Structure(lat, elements, frac_coords)
     try:
-        sga = SpacegroupAnalyzer(struct)
-        sym_struct = sga.get_symmetrized_structure()
-        sg_symbol = sga.get_space_group_symbol()
+        parser = CifParser(StringIO(cif_string))
+        struct = parser.get_structures()[0]
     except Exception:
-        sg_symbol = space_group
+        return None
 
-    cif_string = struct.to(fmt="cif")
-    return {
-        "formula": formula,
-        "space_group": sg_symbol,
-        "crystal_system": crystal_system,
-        "lattice_parameters": lattice,
-        "cif": cif_string,
-        "volume": round(lat.volume, 3),
-    }
+    try:
+        if force_field == "uff":
+            from pymatgen.analysis.force_field import UFF
+            uff = UFF()
+            # Simple geometry optimization via energy minimization
+            opt_struct = uff.optimize_structure(struct)
+            if opt_struct:
+                return {
+                    "formula": opt_struct.composition.reduced_formula,
+                    "lattice": {
+                        "a": opt_struct.lattice.a, "b": opt_struct.lattice.b,
+                        "c": opt_struct.lattice.c,
+                        "alpha": opt_struct.lattice.alpha,
+                        "beta": opt_struct.lattice.beta,
+                        "gamma": opt_struct.lattice.gamma,
+                    },
+                    "volume": opt_struct.lattice.volume,
+                    "energy": None,
+                    "cif": opt_struct.to(fmt="cif"),
+                    "force_field": "uff",
+                }
+    except Exception as e:
+        pass
 
-
-def _parse_formula_counts(formula: str) -> dict[str, int]:
-    counts = {}
-    i = 0
-    while i < len(formula):
-        el = formula[i]
-        i += 1
-        while i < len(formula) and formula[i].islower():
-            el += formula[i]
-            i += 1
-        n = 0
-        while i < len(formula) and formula[i].isdigit():
-            n = n * 10 + int(formula[i])
-            i += 1
-        counts[el] = counts.get(el, 0) + (n if n else 1)
-    return counts
+    return {"formula": struct.composition.reduced_formula,
+            "cif": struct.to(fmt="cif"),
+            "note": "relaxation not available, returning unrelaxed structure"}
 
 
 # Train on import if models don't exist

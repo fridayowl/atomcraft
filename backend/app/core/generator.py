@@ -27,6 +27,20 @@ for group in SUBSTITUTION_GROUPS:
     for el in group:
         SUBSTITUTION_MAP[el] = [e for e in group if e != el]
 
+# Space group number ranges for crystal systems
+SG_TO_CRYSTAL = {1: "triclinic", 2: "monoclinic", 3: "orthorhombic",
+                 4: "tetragonal", 5: "trigonal", 6: "hexagonal", 7: "cubic"}
+
+
+def _sg_to_crystal_system(sg_num: int) -> str:
+    if sg_num <= 2: return "triclinic"
+    if sg_num <= 15: return "monoclinic"
+    if sg_num <= 74: return "orthorhombic"
+    if sg_num <= 142: return "tetragonal"
+    if sg_num <= 167: return "trigonal"
+    if sg_num <= 194: return "hexagonal"
+    return "cubic"
+
 
 def _get_substitutes(element: str) -> list[str]:
     return SUBSTITUTION_MAP.get(element, [])
@@ -68,7 +82,7 @@ def _load_templates(element_constraints: Optional[list[str]] = None, max_templat
             Material.lattice_a, Material.lattice_b, Material.lattice_c,
             Material.lattice_alpha, Material.lattice_beta, Material.lattice_gamma,
             Material.volume,
-        )
+        ).filter(Material.volume > 10).order_by(Material.volume.desc())
 
         if element_constraints:
             filters = []
@@ -77,7 +91,7 @@ def _load_templates(element_constraints: Optional[list[str]] = None, max_templat
             from sqlalchemy import or_
             query = query.filter(or_(*filters))
 
-        templates = query.limit(max_templates).all()
+        templates = query.limit(max(100, max_templates * 2)).all()
         result = []
         for t in templates:
             formula_els = list(_parse_formula_counts(t.formula).keys())
@@ -256,16 +270,7 @@ class MaterialsGenerator:
     async def generate_denovo(self, target_properties: Optional[dict] = None,
                                element_constraints: Optional[list] = None,
                                num_candidates: int = 10) -> list[dict]:
-        from app.core.trainer import (
-            predict_property, predict_crystal_system, predict_lattice_parameters,
-            generate_crystal_structure, _parse_formula_counts, train_crystal_system_predictor,
-        )
-
-        # Train crystal system predictor on first call
-        try:
-            train_crystal_system_predictor()
-        except Exception:
-            pass
+        from app.core.trainer import predict_property, predict_space_group
 
         candidates = []
         seen_formulas = set()
@@ -277,7 +282,6 @@ class MaterialsGenerator:
             n_elements = random.choices([2, 3, 4, 5], weights=[3, 3, 2, 1])[0]
             pool = element_constraints or RANDOM_POOL
             if element_constraints:
-                # Generate from user's elements
                 selected = random.sample(pool, min(n_elements, len(pool)))
                 if "O" not in selected and random.random() > 0.5:
                     selected.append("O")
@@ -296,13 +300,13 @@ class MaterialsGenerator:
             formula_els = list(counts.keys())
 
             try:
-                crystal_system, cs_conf = predict_crystal_system(formula)
-                lattice = predict_lattice_parameters(formula, crystal_system)
+                sg_num, sg_symbol, sg_conf = predict_space_group(formula)
+                crystal_system = _sg_to_crystal_system(sg_num)
             except Exception:
                 crystal_system = random.choice(["cubic", "tetragonal", "orthorhombic", "monoclinic", "triclinic", "hexagonal", "trigonal"])
-                lattice = {"a": 5.0, "b": 5.0, "c": 5.0}
+                sg_symbol = "P1"
 
-            vol = lattice["a"] * lattice["b"] * lattice["c"]
+            vol = 125.0
 
             gap, _ = predict_property(formula, "band_gap", crystal_system=crystal_system, volume=vol)
             eform, _ = predict_property(formula, "formation_energy", crystal_system=crystal_system, volume=vol)
@@ -311,14 +315,6 @@ class MaterialsGenerator:
                 continue
 
             stability = round(float(max(0, min(1, 1.0 - abs(eform) / 5.0))), 3)
-
-            # Generate crystal structure via pymatgen
-            struct_info = None
-            try:
-                struct_info = generate_crystal_structure(
-                    formula, crystal_system=crystal_system, lattice=lattice)
-            except Exception:
-                pass
 
             target_score = 0.5
             if target_properties:
@@ -331,9 +327,9 @@ class MaterialsGenerator:
             cand = {
                 "id": f"denovo_{len(candidates)}_{abs(hash(formula)) % 10000:04d}",
                 "formula": formula,
-                "space_group": (struct_info or {}).get("space_group", "P1"),
+                "space_group": sg_symbol,
                 "crystal_system": crystal_system,
-                "lattice_parameters": lattice,
+                "lattice_parameters": {"a": 5.0, "b": 5.0, "c": 5.0},
                 "elements": formula_els,
                 "generation_score": gen_score,
                 "synthesis_score": round(float(0.5 + 0.3 * (1.0 - len(formula_els) / 6.0)), 3),
@@ -341,7 +337,7 @@ class MaterialsGenerator:
                 "predicted_formation_energy": eform,
                 "stability_score": stability,
                 "generation_method": "denovo",
-                "cif": (struct_info or {}).get("cif", ""),
+                "cif": "",
             }
             candidates.append(cand)
 
