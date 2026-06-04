@@ -128,7 +128,7 @@ class SynthesisEngine:
         recommended = list(dict.fromkeys(recommended))[:3]
 
         from app.core.trainer import predict_property
-        gap, _ = predict_property(formula, "band_gap")
+        gap, _ = predict_property(formula, "band_gap", "")
 
         methods_detail = []
         for m in recommended:

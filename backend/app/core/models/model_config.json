@@ -1,26 +1,29 @@
 {
   "band_gap": {
     "model": "RandomForestRegressor",
-    "n_estimators": 200,
-    "max_depth": 15,
-    "mae": 0.2507,
-    "r2": 0.7645,
+    "n_estimators": 300,
+    "max_depth": 20,
+    "mae": 0.7658,
+    "r2": 0.5176,
+    "n_real": 714,
     "path": "/Users/shinojcm/MaterialDiscovery/backend/scripts/../app/core/models/band_gap.joblib"
   },
   "formation_energy": {
     "model": "RandomForestRegressor",
-    "n_estimators": 200,
-    "max_depth": 15,
-    "mae": 0.1291,
-    "r2": 0.8622,
+    "n_estimators": 300,
+    "max_depth": 20,
+    "mae": 0.3884,
+    "r2": 0.7117,
+    "n_real": 1249,
     "path": "/Users/shinojcm/MaterialDiscovery/backend/scripts/../app/core/models/formation_energy.joblib"
   },
   "density": {
     "model": "RandomForestRegressor",
-    "n_estimators": 200,
-    "max_depth": 15,
-    "mae": 0.3162,
-    "r2": 0.996,
+    "n_estimators": 300,
+    "max_depth": 20,
+    "mae": 0.8205,
+    "r2": 0.7138,
+    "n_real": 1249,
     "path": "/Users/shinojcm/MaterialDiscovery/backend/scripts/../app/core/models/density.joblib"
   }
 }

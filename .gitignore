@@ -6,7 +6,9 @@ build/
 *.pyc
 __pycache__/
 *.db
+*.db-journal
 *.sqlite3
+*.sqlite3-journal
 data/
 .DS_Store
 *.log

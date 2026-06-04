@@ -62,10 +62,11 @@ async def discover(req: DiscoverRequest):
         sg = c["space_group"]
         system = c["crystal_system"]
         lattice = c["lattice_parameters"]
+        vol = lattice.get("a", 5) * lattice.get("b", 5) * lattice.get("c", 5)
         gap = c.get("predicted_band_gap", 0)
         eform = c.get("predicted_formation_energy", 0)
 
-        density_pred = await predictor.predict(formula, "density")
+        density_pred = await predictor.predict(formula, "density", crystal_system=system, volume=vol)
         density = density_pred.get("predicted_value", 0)
 
         feasibility = await synthesis.assess_feasibility(formula)

@@ -86,7 +86,7 @@ class TestTrainer:
 
     def test_feature_vector_length(self):
         vec = _get_element_feature_vector("BaTiO3")
-        assert len(vec) == 10
+        assert len(vec) == 17
         assert vec[1] == 1  # has oxygen
         assert vec[3] > 0  # avg electronegativity
 

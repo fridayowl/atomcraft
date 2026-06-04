@@ -78,8 +78,9 @@ class MaterialsGenerator:
                 lattice["beta"] = proto["beta"]
 
             from app.core.trainer import predict_property
-            gap, _ = predict_property(formula, "band_gap")
-            eform, _ = predict_property(formula, "formation_energy")
+            vol = a * b * c
+            gap, _ = predict_property(formula, "band_gap", crystal_system=sys, volume=vol)
+            eform, _ = predict_property(formula, "formation_energy", crystal_system=sys, volume=vol)
 
             gen_score = round(float(1.0 - abs(eform) / 3.0 * 0.5 + (1.0 - gap / 8.0) * 0.3 + random.uniform(0, 0.2)), 3)
             gen_score = max(0.1, min(0.99, gen_score))

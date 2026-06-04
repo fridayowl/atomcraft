@@ -12,8 +12,9 @@ class PropertyPredictor:
                 self.models[prop] = m
 
     async def predict(self, formula: str, property_type: str,
-                       composition: Optional[dict] = None) -> dict:
-        value, confidence = predict_property(formula, property_type)
+                       composition: Optional[dict] = None,
+                       crystal_system: str = "", volume: float = 0) -> dict:
+        value, confidence = predict_property(formula, property_type, crystal_system, volume)
         return {
             "formula": formula,
             "property": property_type,
