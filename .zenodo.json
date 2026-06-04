@@ -1,0 +1,34 @@
+{
+    "title": "Atomcraft: AI Operating System for Accelerated Materials Discovery",
+    "description": "Atomcraft (formerly AION) is the AI operating system for accelerated materials discovery. It connects generative AI, computational simulation, synthesis feasibility, and experiment tracking into a single closed-loop platform. Researchers describe their target requirements in natural language — Atomcraft generates candidates, predicts properties, validates with simulation (DFT/MD), recommends synthesis routes, and learns from every experiment (both successes and failures).\n\nKey capabilities:\n- Generative AI for crystal structure prediction (de-novo + template-based substitution)\n- ML property prediction (11 RandomForest models: band gap, formation energy, density, etc.)\n- Synthesis feasibility engine (5 methods: solid-state, sol-gel, hydrothermal, CVD, mechanochemical)\n- DFT simulation orchestration (VASP, Quantum ESPRESSO, CP2K, LAMMPS)\n- Active learning loop (pseudo + DFT mode)\n- Knowledge graph (Neo4j) for materials relationships\n- Conversational AI interface (GPT-4o via LangChain)\n- Full React frontend with 3D crystal viewer\n- RESTful API with 25+ endpoints\n- Docker Compose deployment\n\nFrom prompt to synthesis-ready material in hours, not years.",
+    "license": "MIT",
+    "upload_type": "software",
+    "access_right": "open",
+    "version": "0.1.0",
+    "creators": [
+        {
+            "name": "Atomcraft Contributors",
+            "affiliation": "Atomcraft Project"
+        }
+    ],
+    "keywords": [
+        "materials science",
+        "materials discovery",
+        "machine learning",
+        "crystal structure prediction",
+        "DFT",
+        "property prediction",
+        "synthesis",
+        "active learning",
+        "computational chemistry",
+        "fastapi",
+        "react",
+        "docker",
+        "generative AI",
+        "closed-loop learning"
+    ],
+    "communities": [
+        {"identifier": "materials-science"},
+        {"identifier": "computational-chemistry"}
+    ]
+}

@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use Atomcraft in your research, please cite it as below."
+title: "Atomcraft: AI Operating System for Accelerated Materials Discovery"
+version: 0.1.0
+doi: 10.5281/zenodo.14859548
+date-released: 2026-06-05
+authors:
+  - given-names: Atomcraft
+    name: "Atomcraft Contributors"
+    affiliation: "Atomcraft Project"
+license: MIT
+repository-code: "https://github.com/fridayowl/atomcraft"
+abstract: "Atomcraft connects generative AI, computational simulation, synthesis feasibility, and experiment tracking into a single closed-loop platform for accelerated materials discovery. Researchers describe target requirements in natural language — Atomcraft generates candidates, predicts properties, validates with simulation (DFT/MD), recommends synthesis routes, and learns from every experiment."
+keywords:
+  - materials-science
+  - materials-discovery
+  - machine-learning
+  - crystal-structure-prediction
+  - dft
+  - property-prediction
+  - synthesis
+  - active-learning
+  - computational-chemistry
+  - fastapi
+  - react

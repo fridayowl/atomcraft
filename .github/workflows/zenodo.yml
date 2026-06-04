@@ -1,0 +1,43 @@
+name: Zenodo
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  zenodo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install codemeta
+        run: pip install codemetapy
+
+      - name: Generate codemeta.json
+        run: |
+          codemeta-generate \
+            --author "Atomcraft Contributors" \
+            --title "Atomcraft: AI Operating System for Accelerated Materials Discovery" \
+            --url "https://github.com/fridayowl/atomcraft" \
+            --description "Atomcraft connects generative AI, computational simulation, synthesis feasibility, and experiment tracking into a single closed-loop platform for accelerated materials discovery." \
+            --license "MIT" \
+            > codemeta.json
+
+      - name: Upload to Zenodo
+        uses: megasanjay/upload-to-zenodo@v2.0.1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          zenodo_token: ${{ secrets.ZENODO_TOKEN }}
+          zenodo_deposition_id: ${{ secrets.ZENODO_DEPOSITION_ID }}
+          zenodo_publish: true
+          zenodo_sandbox: false
+          commit_message: 'chore: update metadata for Zenodo release'
+          update_metadata_files: true
+          codemeta_json: true
+          citation_cff: true
+          zenodo_json: true
