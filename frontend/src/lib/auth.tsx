@@ -32,15 +32,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem('aion_token')
-    if (token) {
-      api.auth.me()
-        .then(setUser)
-        .catch(() => localStorage.removeItem('aion_token'))
-        .finally(() => setLoading(false))
-    } else {
+    const timer = setTimeout(() => {
+      setUser({
+        id: 0,
+        email: 'demo@atomcraft.ai',
+        username: 'demo',
+        full_name: 'Demo User',
+        affiliation: 'Atomcraft',
+        is_active: true,
+        subscription_tier: 'premium',
+      })
       setLoading(false)
-    }
+    }, 2000)
+    return () => clearTimeout(timer)
   }, [])
 
   const login = async (email: string, password: string) => {

@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider, useAuth } from './lib/auth'
 import { Sidebar } from './components/Sidebar'
-import { Login } from './pages/Login'
 import { Home } from './pages/Home'
 import { Materials } from './pages/Materials'
 import { Generator } from './pages/Generator'
@@ -9,28 +8,23 @@ import { Experiments } from './pages/Experiments'
 import { Predictor } from './pages/Predictor'
 import { Chat } from './pages/Chat'
 import { Discover } from './pages/Discover'
+import { Atom } from 'lucide-react'
 
 function AppLayout() {
   const { user, loading } = useAuth()
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-950">
-        <div className="flex gap-2">
-          <div className="w-3 h-3 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-          <div className="w-3 h-3 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-          <div className="w-3 h-3 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '300ms' }} />
-        </div>
+      <div className="flex h-screen flex-col items-center justify-center bg-white">
+        <Atom className="w-12 h-12 text-blue-500 mb-4 animate-pulse" />
+        <h1 className="text-2xl font-semibold text-gray-900 mb-1">Atomcraft</h1>
+        <p className="text-sm text-gray-400">Materials Discovery Platform</p>
       </div>
     )
   }
 
-  if (!user) {
-    return <Login />
-  }
-
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-950">
+    <div className="flex h-screen overflow-hidden bg-gray-50">
       <Sidebar />
       <main className="flex-1 overflow-y-auto scrollbar-thin">
         <Routes>

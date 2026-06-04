@@ -151,7 +151,7 @@ export default function CrystalViewer({ structure, elements, latticeParameters }
   }, [atoms])
 
   return (
-    <div className="w-full h-64 glass rounded-xl overflow-hidden">
+    <div className="w-full h-64 bg-white border border-gray-100 rounded-xl overflow-hidden">
       <Canvas camera={{ position: [6, 4, 8], fov: 40 }}>
         <ambientLight intensity={0.5} />
         <directionalLight position={[10, 10, 10]} intensity={0.8} />

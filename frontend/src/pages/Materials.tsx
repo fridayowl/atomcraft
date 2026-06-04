@@ -1,8 +1,21 @@
 import { useState, useEffect, useRef } from 'react'
 import { api } from '../api/client'
 import { Material } from '../lib/types'
-import { formatNumber, getPropertyColor, getPropertyUnit } from '../lib/utils'
+import { formatNumber, getPropertyColor } from '../lib/utils'
 import CrystalViewer from '../components/CrystalViewer'
+import {
+  Search,
+  Plus,
+  Upload,
+  Download,
+  Trash2,
+  FlaskConical,
+  Atom,
+  Ruler,
+  BarChart3,
+  Layers,
+  Eye,
+} from 'lucide-react'
 
 export function Materials() {
   const [materials, setMaterials] = useState<Material[]>([])
@@ -72,49 +85,54 @@ export function Materials() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
-      <h1 className="text-2xl font-bold gradient-text mb-6">Materials Database</h1>
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-gray-900">Materials Database</h1>
+        <p className="text-sm text-gray-400 mt-1">Browse, search, and manage your materials</p>
+      </div>
 
-      {/* Search & Create */}
-      <div className="grid grid-cols-2 gap-6 mb-8">
-        <div className="glass rounded-xl p-4">
-          <h2 className="text-sm font-semibold text-gray-300 mb-3">Search Materials</h2>
+      <div className="grid grid-cols-2 gap-5 mb-6">
+        <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Search Materials</h2>
           <div className="flex gap-2">
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder="Search by formula, name, element..."
-              className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-            />
-            <button onClick={handleSearch} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-medium transition-colors">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                placeholder="Search by formula, name, element..."
+                className="w-full pl-9 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+              />
+            </div>
+            <button onClick={handleSearch} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors">
               Search
             </button>
           </div>
         </div>
 
-        <div className="glass rounded-xl p-4">
-          <h2 className="text-sm font-semibold text-gray-300 mb-3">Add Material</h2>
+        <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Add Material</h2>
           <div className="flex gap-2 mb-3">
             <input
               type="text"
               value={formula}
               onChange={(e) => setFormula(e.target.value)}
               placeholder="Formula (e.g., LiCoO2)"
-              className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 font-mono"
+              className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 font-mono"
             />
             <input
               type="text"
               value={spaceGroup}
               onChange={(e) => setSpaceGroup(e.target.value)}
               placeholder="Space group"
-              className="w-28 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+              className="w-28 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
             />
-            <button onClick={handleCreate} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-sm font-medium transition-colors">
-              Add
+            <button onClick={handleCreate} className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1">
+              <Plus className="w-4 h-4" /> Add
             </button>
           </div>
-          <div className="border-t border-gray-700 pt-3">
+          <div className="border-t border-gray-100 pt-3">
             <input
               ref={fileInputRef}
               type="file"
@@ -138,34 +156,37 @@ export function Materials() {
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={importing}
-              className="w-full px-4 py-2 bg-purple-600/50 hover:bg-purple-600 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+              className="w-full px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
             >
-              {importing ? 'Importing...' : 'Import CIF File'}
+              <Upload className="w-4 h-4" /> {importing ? 'Importing...' : 'Import CIF File'}
             </button>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
-        {/* Materials List */}
-        <div className="col-span-1 glass rounded-xl p-4 max-h-[70vh] overflow-y-auto scrollbar-thin">
+      <div className="grid grid-cols-3 gap-5">
+        <div className="col-span-1 bg-white rounded-xl border border-gray-100 shadow-sm p-4 max-h-[65vh] overflow-y-auto scrollbar-thin">
           {loading ? (
-            <div className="shimmer h-64 rounded-lg" />
+            <div className="animate-pulse space-y-2">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="h-14 bg-gray-50 rounded-lg" />
+              ))}
+            </div>
           ) : materials.length === 0 ? (
-            <p className="text-sm text-gray-500 py-8 text-center">No materials found</p>
+            <p className="text-sm text-gray-400 py-8 text-center">No materials found</p>
           ) : (
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               {materials.map((m) => (
                 <div
                   key={m.id}
                   onClick={() => loadDetail(m.id)}
                   className={`p-3 rounded-lg cursor-pointer transition-all text-sm ${
-                    selected?.id === m.id ? 'bg-indigo-500/10 border border-indigo-500/20' : 'hover:bg-white/5'
+                    selected?.id === m.id ? 'bg-blue-50 border border-blue-100' : 'hover:bg-gray-50 border border-transparent'
                   }`}
                 >
-                  <p className="font-mono font-medium" dangerouslySetInnerHTML={{ __html: m.formula }} />
-                  <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-                    <span>{m.space_group || '—'}</span>
+                  <p className="font-mono font-medium text-gray-900" dangerouslySetInnerHTML={{ __html: m.formula }} />
+                  <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400">
+                    <span>{m.space_group || '\u2014'}</span>
                     {Object.keys(m.properties || {}).length > 0 && (
                       <span>· {Object.keys(m.properties).length} properties</span>
                     )}
@@ -176,18 +197,22 @@ export function Materials() {
           )}
         </div>
 
-        {/* Detail View */}
-        <div className="col-span-2 glass rounded-xl p-6 min-h-[400px]">
+        <div className="col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm p-6 min-h-[400px]">
           {!selected ? (
             <div className="flex items-center justify-center h-full">
-              <p className="text-gray-500 text-sm">Select a material to view details</p>
+              <div className="text-center">
+                <Eye className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                <p className="text-sm text-gray-400">Select a material to view details</p>
+              </div>
             </div>
           ) : (
             <div className="fade-in">
-                <div className="flex items-start justify-between mb-6">
+              <div className="flex items-start justify-between mb-6">
                 <div>
-                  <h2 className="text-xl font-bold font-mono" dangerouslySetInnerHTML={{ __html: selected.formula }} />
-                  <p className="text-sm text-gray-400 mt-1">{selected.name || selected.formula}</p>
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    <span className="font-mono" dangerouslySetInnerHTML={{ __html: selected.formula }} />
+                  </h2>
+                  <p className="text-sm text-gray-400 mt-0.5">{selected.name || selected.formula}</p>
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -202,9 +227,9 @@ export function Materials() {
                         URL.revokeObjectURL(url)
                       })
                     }}
-                    className="px-3 py-1.5 bg-emerald-600/50 hover:bg-emerald-600 rounded-lg text-xs transition-colors"
+                    className="px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-600 rounded-lg text-xs font-medium transition-colors flex items-center gap-1"
                   >
-                    Export CIF
+                    <Download className="w-3 h-3" /> Export CIF
                   </button>
                   <button
                     onClick={() => {
@@ -212,30 +237,37 @@ export function Materials() {
                         setSelected({ ...selected, _synthesis: r } as any)
                       })
                     }}
-                    className="px-3 py-1.5 bg-indigo-600/50 hover:bg-indigo-600 rounded-lg text-xs transition-colors"
+                    className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-colors flex items-center gap-1"
                   >
-                    Check Synthesis
+                    <FlaskConical className="w-3 h-3" /> Check Synthesis
                   </button>
-                  <button onClick={() => handleDelete(selected.id)} className="px-3 py-1.5 bg-red-600/50 hover:bg-red-600 rounded-lg text-xs transition-colors">
-                    Delete
+                  <button
+                    onClick={() => handleDelete(selected.id)}
+                    className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-medium transition-colors flex items-center gap-1"
+                  >
+                    <Trash2 className="w-3 h-3" /> Delete
                   </button>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="glass-light rounded-lg p-4">
-                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Crystal Data</h3>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1">
+                    <Ruler className="w-3 h-3" /> Crystal Data
+                  </h3>
                   <div className="space-y-2 text-sm">
-                    <div className="flex justify-between"><span className="text-gray-400">Space Group</span><span className="font-mono">{selected.space_group || '—'}</span></div>
-                    <div className="flex justify-between"><span className="text-gray-400">Crystal System</span><span>{selected.crystal_system || '—'}</span></div>
-                    <div className="flex justify-between"><span className="text-gray-400">a</span><span className="font-mono">{selected.lattice_parameters?.a ? `${selected.lattice_parameters.a} Å` : '—'}</span></div>
-                    <div className="flex justify-between"><span className="text-gray-400">b</span><span className="font-mono">{selected.lattice_parameters?.b ? `${selected.lattice_parameters.b} Å` : '—'}</span></div>
-                    <div className="flex justify-between"><span className="text-gray-400">c</span><span className="font-mono">{selected.lattice_parameters?.c ? `${selected.lattice_parameters.c} Å` : '—'}</span></div>
-                    <div className="flex justify-between"><span className="text-gray-400">Volume</span><span className="font-mono">{selected.volume ? `${selected.volume.toFixed(2)} Å³` : '—'}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-400">Space Group</span><span className="font-mono text-gray-700">{selected.space_group || '\u2014'}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-400">Crystal System</span><span className="text-gray-700">{selected.crystal_system || '\u2014'}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-400">a</span><span className="font-mono text-gray-700">{selected.lattice_parameters?.a ? `${selected.lattice_parameters.a} \u00c5` : '\u2014'}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-400">b</span><span className="font-mono text-gray-700">{selected.lattice_parameters?.b ? `${selected.lattice_parameters.b} \u00c5` : '\u2014'}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-400">c</span><span className="font-mono text-gray-700">{selected.lattice_parameters?.c ? `${selected.lattice_parameters.c} \u00c5` : '\u2014'}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-400">Volume</span><span className="font-mono text-gray-700">{selected.volume ? `${selected.volume.toFixed(2)} \u00c5\u00b3` : '\u2014'}</span></div>
                   </div>
                 </div>
-                <div className="glass-light rounded-lg p-4">
-                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">3D Structure</h3>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1">
+                    <Atom className="w-3 h-3" /> 3D Structure
+                  </h3>
                   <CrystalViewer
                     structure={(selected as any).structure}
                     elements={(selected as any).elements || Object.keys(selected.composition || {})}
@@ -243,11 +275,13 @@ export function Materials() {
                   />
                 </div>
 
-                <div className="glass-light rounded-lg p-4">
-                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Properties</h3>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1">
+                    <BarChart3 className="w-3 h-3" /> Properties
+                  </h3>
                   <div className="space-y-2 text-sm">
                     {Object.entries(selected.properties || {}).length === 0 && (
-                      <p className="text-gray-500">No properties recorded</p>
+                      <p className="text-gray-400">No properties recorded</p>
                     )}
                     {Object.entries(selected.properties || {}).map(([key, val]) => (
                       <div key={key} className="flex justify-between">
@@ -259,41 +293,41 @@ export function Materials() {
                     ))}
                   </div>
                 </div>
+
+                {Object.keys(selected.composition || {}).length > 0 && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1">
+                      <Layers className="w-3 h-3" /> Composition
+                    </h3>
+                    <div className="flex gap-2 flex-wrap">
+                      {Object.entries(selected.composition).map(([el, data]) => {
+                        const frac = typeof data === 'number' ? data : (data as any).atomic_fraction || 0
+                        return (
+                          <div key={el} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border border-gray-100 text-sm">
+                            <span className="font-medium text-gray-700">{el}</span>
+                            <span className="text-gray-400">{(frac * 100).toFixed(1)}%</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Composition */}
-              {Object.keys(selected.composition || {}).length > 0 && (
-                <div className="glass-light rounded-lg p-4">
-                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Composition</h3>
-                  <div className="flex gap-2 flex-wrap">
-                    {Object.entries(selected.composition).map(([el, data]) => {
-                      const frac = typeof data === 'number' ? data : (data as any).atomic_fraction || 0
-                      return (
-                        <div key={el} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-800 text-sm">
-                          <span className="font-medium">{el}</span>
-                          <span className="text-gray-400">{(frac * 100).toFixed(1)}%</span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Synthesis assessment if available */}
               {(selected as any)._synthesis && (
-                <div className="glass-light rounded-lg p-4 mt-4 fade-in">
-                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Synthesis Assessment</h3>
+                <div className="bg-gray-50 rounded-lg p-4 fade-in">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Synthesis Assessment</h3>
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-sm text-gray-400">Feasibility:</span>
-                    <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-red-500 via-yellow-500 to-green-500 rounded-full" style={{ width: `${(selected as any)._synthesis.feasibility_score * 100}%` }} />
+                    <span className="text-sm text-gray-500">Feasibility:</span>
+                    <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-red-400 via-orange-400 to-green-500 rounded-full" style={{ width: `${(selected as any)._synthesis.feasibility_score * 100}%` }} />
                     </div>
-                    <span className="text-sm font-mono">{((selected as any)._synthesis.feasibility_score * 100).toFixed(0)}%</span>
+                    <span className="text-sm font-mono text-gray-700">{((selected as any)._synthesis.feasibility_score * 100).toFixed(0)}%</span>
                   </div>
                   {(selected as any)._synthesis.recommended_methods?.map((m: any) => (
                     <div key={m.method} className="flex items-center justify-between text-sm py-1">
-                      <span className="text-gray-300">{m.method.replace(/_/g, ' ')}</span>
-                      <span className="text-gray-500">{m.estimated_temperature}°C · {m.difficulty}</span>
+                      <span className="text-gray-600">{m.method.replace(/_/g, ' ')}</span>
+                      <span className="text-gray-400">{m.difficulty}</span>
                     </div>
                   ))}
                 </div>

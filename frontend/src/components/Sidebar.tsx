@@ -1,59 +1,67 @@
 import { NavLink } from 'react-router-dom'
 import { cn } from '../lib/utils'
+import {
+  LayoutDashboard,
+  Database,
+  Sparkles,
+  Beaker,
+  LineChart,
+  FlaskConical,
+  MessageSquare,
+  Atom,
+} from 'lucide-react'
 
 const navItems = [
-  { path: '/', label: 'Dashboard', icon: '◈' },
-  { path: '/materials', label: 'Materials', icon: '⬡' },
-  { path: '/generator', label: 'Generator', icon: '✦' },
-  { path: '/discover', label: 'Discover', icon: '🔬' },
-  { path: '/predict', label: 'Predict', icon: '▦' },
-  { path: '/experiments', label: 'Experiments', icon: '⚗' },
-  { path: '/chat', label: 'AION Chat', icon: '✦' },
+  { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/materials', label: 'Materials', icon: Database },
+  { path: '/generator', label: 'Generator', icon: Sparkles },
+  { path: '/discover', label: 'Discover', icon: Beaker },
+  { path: '/predict', label: 'Predict', icon: LineChart },
+  { path: '/experiments', label: 'Experiments', icon: FlaskConical },
+  { path: '/chat', label: 'Chat', icon: MessageSquare },
 ]
 
 export function Sidebar() {
   return (
-    <aside className="w-64 glass border-r border-gray-800 flex flex-col h-full shrink-0">
-      <div className="p-6 border-b border-gray-800">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-lg font-bold">
-            A
+    <aside className="w-56 bg-white border-r border-gray-100 flex flex-col h-full shrink-0">
+      <div className="px-5 py-5 border-b border-gray-100">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center">
+            <Atom className="w-4 h-4 text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold gradient-text">AION</h1>
-            <p className="text-xs text-gray-500">Materials Discovery</p>
+            <h1 className="text-sm font-semibold text-gray-900">Atomcraft</h1>
+            <p className="text-[11px] text-gray-400">Materials Discovery</p>
           </div>
         </div>
       </div>
 
-      <nav className="flex-1 p-4 space-y-1">
+      <nav className="flex-1 px-3 py-4 space-y-0.5">
         {navItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
             className={({ isActive }) =>
               cn(
-                'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200',
+                'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150',
                 isActive
-                  ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                  ? 'bg-blue-50 text-blue-600'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               )
             }
           >
-            <span className="text-lg">{item.icon}</span>
+            <item.icon className="w-4 h-4" />
             {item.label}
           </NavLink>
         ))}
       </nav>
 
-      <div className="p-4 border-t border-gray-800">
-        <div className="glass-light rounded-lg p-3">
-          <div className="flex items-center gap-2 text-xs text-gray-500">
-            <div className="w-2 h-2 rounded-full bg-green-500" />
-            <span>All systems operational</span>
-          </div>
-          <p className="text-xs text-gray-600 mt-1">v0.1.0</p>
+      <div className="px-4 py-4 border-t border-gray-100">
+        <div className="flex items-center gap-2 text-xs text-gray-400">
+          <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+          <span>All systems operational</span>
         </div>
+        <p className="text-[11px] text-gray-300 mt-1">v0.1.0</p>
       </div>
     </aside>
   )

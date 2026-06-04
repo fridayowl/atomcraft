@@ -1,9 +1,16 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
-import { Material, Candidate, Experiment } from '../lib/types'
-import { formatNumber, getPropertyColor } from '../lib/utils'
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
+import { Material, Experiment } from '../lib/types'
+import { formatNumber } from '../lib/utils'
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import {
+  Database,
+  FlaskConical,
+  LineChart as ChartIcon,
+  ArrowRight,
+  Send,
+} from 'lucide-react'
 
 export function Home() {
   const navigate = useNavigate()
@@ -45,7 +52,7 @@ export function Home() {
       const res = await api.chat.query(chatInput)
       setChatResponse(res.response || 'No response')
     } catch {
-      setChatResponse('Error connecting to AION. Make sure the backend is running.')
+      setChatResponse('Error connecting. Make sure the backend is running.')
     }
   }
 
@@ -58,61 +65,56 @@ export function Home() {
     { name: 'Jun', materials: 48, predictions: 128 },
   ]
 
+  const statCards = [
+    { label: 'Materials', value: stats.materials, icon: Database, color: 'text-blue-500', bar: 'bg-blue-500' },
+    { label: 'Experiments', value: stats.experiments, icon: FlaskConical, color: 'text-green-500', bar: 'bg-green-500' },
+    { label: 'Predictions', value: stats.predictions || 128, icon: ChartIcon, color: 'text-orange-500', bar: 'bg-orange-500' },
+  ]
+
   return (
     <div className="p-8 max-w-7xl mx-auto">
-      {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold gradient-text">AION Materials Discovery</h1>
-        <p className="text-gray-400 mt-2">AI-powered platform for accelerated materials design and discovery</p>
+        <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
+        <p className="text-sm text-gray-400 mt-1">AI-powered platform for accelerated materials design and discovery</p>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-3 gap-6 mb-8">
-        {[
-          { label: 'Materials', value: stats.materials, icon: '⬡', color: 'from-indigo-500 to-purple-600' },
-          { label: 'Experiments', value: stats.experiments, icon: '⚗', color: 'from-emerald-500 to-teal-600' },
-          { label: 'Predictions', value: stats.predictions || 128, icon: '▦', color: 'from-amber-500 to-orange-600' },
-        ].map((stat) => (
-          <div key={stat.label} className="glass rounded-xl p-6 hover:border-indigo-500/30 transition-all duration-300">
+      <div className="grid grid-cols-3 gap-5 mb-8">
+        {statCards.map((stat) => (
+          <div key={stat.label} className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-gray-400 text-sm font-medium">{stat.label}</p>
-              <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${stat.color} flex items-center justify-center text-lg`}>
-                {stat.icon}
-              </div>
+              <p className="text-sm font-medium text-gray-400">{stat.label}</p>
+              <stat.icon className={`w-5 h-5 ${stat.color}`} />
             </div>
-            <p className="text-3xl font-bold">{stat.value}</p>
-            <div className="mt-2 h-1 bg-gray-800 rounded-full overflow-hidden">
-              <div className={`h-full bg-gradient-to-r ${stat.color} rounded-full`} style={{ width: `${Math.min(100, stat.value * 2)}%` }} />
+            <p className="text-3xl font-semibold text-gray-900">{stat.value}</p>
+            <div className="mt-3 h-1 bg-gray-100 rounded-full overflow-hidden">
+              <div className={`h-full ${stat.bar} rounded-full`} style={{ width: `${Math.min(100, stat.value * 2)}%` }} />
             </div>
           </div>
         ))}
       </div>
 
-      {/* Main Grid */}
-      <div className="grid grid-cols-3 gap-6 mb-8">
-        {/* Activity Chart */}
-        <div className="col-span-2 glass rounded-xl p-6">
-          <h2 className="text-lg font-semibold mb-4">Discovery Activity</h2>
+      <div className="grid grid-cols-3 gap-5 mb-8">
+        <div className="col-span-2 bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+          <h2 className="text-sm font-semibold text-gray-900 mb-4">Discovery Activity</h2>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={chartData}>
-              <XAxis dataKey="name" stroke="#6b7280" fontSize={12} />
-              <YAxis stroke="#6b7280" fontSize={12} />
+              <XAxis dataKey="name" stroke="#9ca3af" fontSize={12} />
+              <YAxis stroke="#9ca3af" fontSize={12} />
               <Tooltip
-                contentStyle={{ background: '#1f2937', border: '1px solid #374151', borderRadius: '8px' }}
-                labelStyle={{ color: '#f9fafb' }}
+                contentStyle={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
+                labelStyle={{ color: '#1d1d1f' }}
               />
-              <Line type="monotone" dataKey="materials" stroke="#818cf8" strokeWidth={2} dot={{ fill: '#818cf8' }} />
+              <Line type="monotone" dataKey="materials" stroke="#3b82f6" strokeWidth={2} dot={{ fill: '#3b82f6' }} />
               <Line type="monotone" dataKey="predictions" stroke="#22c55e" strokeWidth={2} dot={{ fill: '#22c55e' }} />
             </LineChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Quick Chat */}
-        <div className="glass rounded-xl p-6 flex flex-col">
-          <h2 className="text-lg font-semibold mb-4">Ask AION</h2>
+        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm flex flex-col">
+          <h2 className="text-sm font-semibold text-gray-900 mb-4">Quick Ask</h2>
           <div className="flex-1 min-h-0">
             {chatResponse && (
-              <div className="glass-light rounded-lg p-3 mb-3 text-sm text-gray-300 max-h-32 overflow-y-auto fade-in">
+              <div className="bg-gray-50 rounded-lg p-3 mb-3 text-sm text-gray-600 max-h-32 overflow-y-auto fade-in">
                 {chatResponse}
               </div>
             )}
@@ -123,49 +125,48 @@ export function Home() {
                 type="text"
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                placeholder="Describe a material to discover..."
-                className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                placeholder="Ask about materials..."
+                className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
               />
               <button
                 type="submit"
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-medium transition-colors"
+                className="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors"
               >
-                Ask
+                <Send className="w-4 h-4" />
               </button>
             </div>
           </form>
         </div>
       </div>
 
-      {/* Recent Materials & Experiments */}
-      <div className="grid grid-cols-2 gap-6">
-        <div className="glass rounded-xl p-6">
+      <div className="grid grid-cols-2 gap-5">
+        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold">Recent Materials</h2>
-            <button onClick={() => navigate('/materials')} className="text-xs text-indigo-400 hover:text-indigo-300">
-              View all →
+            <h2 className="text-sm font-semibold text-gray-900">Recent Materials</h2>
+            <button onClick={() => navigate('/materials')} className="text-xs text-blue-500 hover:text-blue-600 flex items-center gap-1">
+              View all <ArrowRight className="w-3 h-3" />
             </button>
           </div>
           <div className="space-y-2">
             {recentMaterials.length === 0 && loading && (
-              <div className="shimmer h-24 rounded-lg" />
+              <div className="animate-pulse h-24 bg-gray-50 rounded-lg" />
             )}
             {recentMaterials.length === 0 && !loading && (
-              <p className="text-sm text-gray-500 py-8 text-center">No materials yet. Generate some!</p>
+              <p className="text-sm text-gray-400 py-8 text-center">No materials yet. Generate some!</p>
             )}
             {recentMaterials.map((m) => (
               <div
                 key={m.id}
-                onClick={() => navigate(`/materials`)}
-                className="glass-light rounded-lg p-3 cursor-pointer hover:border-indigo-500/30 transition-all"
+                onClick={() => navigate('/materials')}
+                className="bg-gray-50 rounded-lg p-3 cursor-pointer hover:bg-gray-100 transition-colors"
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-mono text-sm font-medium" dangerouslySetInnerHTML={{ __html: m.formula }} />
-                    <p className="text-xs text-gray-500 mt-0.5">{m.space_group || '—'}</p>
+                    <p className="font-mono text-sm font-medium text-gray-900" dangerouslySetInnerHTML={{ __html: m.formula }} />
+                    <p className="text-xs text-gray-400 mt-0.5">{m.space_group || '\u2014'}</p>
                   </div>
                   {m.properties?.band_gap && (
-                    <span className="text-xs font-mono" style={{ color: getPropertyColor('band_gap') }}>
+                    <span className="text-xs font-mono text-blue-500">
                       {formatNumber(m.properties.band_gap.value)} eV
                     </span>
                   )}
@@ -175,32 +176,32 @@ export function Home() {
           </div>
         </div>
 
-        <div className="glass rounded-xl p-6">
+        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold">Recent Experiments</h2>
-            <button onClick={() => navigate('/experiments')} className="text-xs text-indigo-400 hover:text-indigo-300">
-              View all →
+            <h2 className="text-sm font-semibold text-gray-900">Recent Experiments</h2>
+            <button onClick={() => navigate('/experiments')} className="text-xs text-blue-500 hover:text-blue-600 flex items-center gap-1">
+              View all <ArrowRight className="w-3 h-3" />
             </button>
           </div>
           <div className="space-y-2">
             {recentExperiments.length === 0 && loading && (
-              <div className="shimmer h-24 rounded-lg" />
+              <div className="animate-pulse h-24 bg-gray-50 rounded-lg" />
             )}
             {recentExperiments.length === 0 && !loading && (
-              <p className="text-sm text-gray-500 py-8 text-center">No experiments yet. Plan one!</p>
+              <p className="text-sm text-gray-400 py-8 text-center">No experiments yet. Plan one!</p>
             )}
             {recentExperiments.map((e) => (
-              <div key={e.id} className="glass-light rounded-lg p-3">
+              <div key={e.id} className="bg-gray-50 rounded-lg p-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium">{e.name}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{e.experiment_type}</p>
+                    <p className="text-sm font-medium text-gray-900">{e.name}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{e.experiment_type}</p>
                   </div>
                   <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                    e.status === 'completed' ? 'bg-green-500/10 text-green-400' :
-                    e.status === 'running' ? 'bg-blue-500/10 text-blue-400' :
-                    e.status === 'failed' ? 'bg-red-500/10 text-red-400' :
-                    'bg-yellow-500/10 text-yellow-400'
+                    e.status === 'completed' ? 'bg-green-50 text-green-600' :
+                    e.status === 'running' ? 'bg-blue-50 text-blue-600' :
+                    e.status === 'failed' ? 'bg-red-50 text-red-600' :
+                    'bg-orange-50 text-orange-600'
                   }`}>
                     {e.status}
                   </span>
