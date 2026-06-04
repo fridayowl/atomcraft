@@ -2,108 +2,232 @@ import random
 import numpy as np
 from typing import Optional
 
-PROTOTYPE_STRUCTURES = [
-    {"sg": "Fm-3m", "system": "cubic", "a": 4.0, "example": "NaCl"},
-    {"sg": "Pm-3m", "system": "cubic", "a": 3.8, "example": "CsCl"},
-    {"sg": "Fd-3m", "system": "cubic", "a": 8.0, "example": "MgAl2O4"},
-    {"sg": "R-3m", "system": "trigonal", "a": 2.8, "c": 14.0, "example": "LiCoO2"},
-    {"sg": "P6_3/mmc", "system": "hexagonal", "a": 3.2, "c": 5.2, "example": "Graphite"},
-    {"sg": "I4/mmm", "system": "tetragonal", "a": 3.9, "c": 4.1, "example": "TiO2"},
-    {"sg": "P2_1/c", "system": "monoclinic", "a": 4.8, "b": 8.5, "c": 5.5, "beta": 106.0, "example": "Zeolite"},
-    {"sg": "Pnma", "system": "orthorhombic", "a": 6.0, "b": 7.5, "c": 5.5, "example": "Perovskite"},
-    {"sg": "C2/c", "system": "monoclinic", "a": 7.0, "b": 5.0, "c": 7.0, "beta": 115.0, "example": "Spodumene"},
-    {"sg": "Pbca", "system": "orthorhombic", "a": 8.0, "b": 6.0, "c": 7.0, "example": "Olivine"},
+SUBSTITUTION_GROUPS = [
+    {"Li", "Na", "K", "Rb", "Cs"},
+    {"Be", "Mg", "Ca", "Sr", "Ba"},
+    {"Sc", "Y", "La", "Ce", "Pr", "Nd", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb", "Lu"},
+    {"Ti", "Zr", "Hf"},
+    {"V", "Nb", "Ta"},
+    {"Cr", "Mo", "W"},
+    {"Mn", "Tc", "Re"},
+    {"Fe", "Ru", "Os"},
+    {"Co", "Rh", "Ir"},
+    {"Ni", "Pd", "Pt"},
+    {"Cu", "Ag", "Au"},
+    {"Zn", "Cd", "Hg"},
+    {"B", "Al", "Ga", "In", "Tl"},
+    {"C", "Si", "Ge", "Sn", "Pb"},
+    {"N", "P", "As", "Sb", "Bi"},
+    {"O", "S", "Se", "Te"},
+    {"F", "Cl", "Br", "I"},
 ]
 
+SUBSTITUTION_MAP = {}
+for group in SUBSTITUTION_GROUPS:
+    for el in group:
+        SUBSTITUTION_MAP[el] = [e for e in group if e != el]
 
-def _assign_elements(n_elements: int, constraints: Optional[list[str]] = None) -> tuple[list[str], list[int], str]:
-    pool = constraints or ["Li", "Na", "K", "Mg", "Ca", "Fe", "Co", "Ni", "Mn", "Ti",
-                           "Zr", "Zn", "Al", "Si", "O", "S", "F", "Cl", "C", "N"]
-    if len(pool) < n_elements:
-        n_elements = len(pool)
 
-    selected = random.sample(pool, n_elements)
-    oxide = "O" in selected
+def _get_substitutes(element: str) -> list[str]:
+    return SUBSTITUTION_MAP.get(element, [])
 
-    if oxide and n_elements == 2:
-        other = [e for e in selected if e != "O"][0]
-        if other in ["Li", "Na", "K"]:
-            stoich = [2, 1] if random.random() > 0.5 else [1, 1]
-        elif other in ["Mg", "Ca", "Zn"]:
-            stoich = [1, 1]
-        elif other in ["Fe", "Co", "Ni", "Mn"]:
-            stoich = [1, 1]
-        else:
-            stoich = [1, 2] if random.random() > 0.5 else [1, 1]
-        formula_parts = []
-        for i, el in enumerate(selected):
-            if i == 0 and stoich[i] > 1:
-                formula_parts.append(f"{el}{stoich[i]}")
-            elif i == 0:
-                formula_parts.append(el)
-            else:
-                formula_parts.append(f"{el}{stoich[i]}" if stoich[i] > 1 else el)
-    elif n_elements >= 3:
-        stoich = [random.randint(1, 4) for _ in range(n_elements)]
-        formula_parts = [f"{el}{s}" if s > 1 else el for el, s in zip(selected, stoich)]
-    else:
-        stoich = [1 for _ in range(n_elements)]
-        formula_parts = list(selected)
 
-    formula = "".join(formula_parts)
-    return selected, stoich, formula
+def _parse_formula_counts(formula: str) -> dict[str, int]:
+    counts = {}
+    i = 0
+    while i < len(formula):
+        el = formula[i]
+        i += 1
+        while i < len(formula) and formula[i].islower():
+            el += formula[i]
+            i += 1
+        n = 0
+        while i < len(formula) and formula[i].isdigit():
+            n = n * 10 + int(formula[i])
+            i += 1
+        counts[el] = counts.get(el, 0) + (n if n else 1)
+    return counts
+
+
+def _formula_from_counts(counts: dict[str, int]) -> str:
+    parts = []
+    for el, n in counts.items():
+        parts.append(f"{el}{n}" if n > 1 else el)
+    return "".join(parts)
+
+
+def _load_templates(element_constraints: Optional[list[str]] = None, max_templates: int = 500) -> list[dict]:
+    from app.database import SessionLocal
+    from app.models.material import Material
+    from sqlalchemy import func
+
+    db = SessionLocal()
+    try:
+        query = db.query(
+            Material.formula, Material.space_group, Material.crystal_system,
+            Material.lattice_a, Material.lattice_b, Material.lattice_c,
+            Material.lattice_alpha, Material.lattice_beta, Material.lattice_gamma,
+            Material.volume,
+        )
+
+        if element_constraints:
+            filters = []
+            for el in element_constraints:
+                filters.append(Material.formula.contains(el))
+            from sqlalchemy import or_
+            query = query.filter(or_(*filters))
+
+        templates = query.limit(max_templates).all()
+        result = []
+        for t in templates:
+            formula_els = list(_parse_formula_counts(t.formula).keys())
+            if len(formula_els) < 2:
+                continue
+            result.append({
+                "formula": t.formula,
+                "space_group": t.space_group,
+                "crystal_system": t.crystal_system,
+                "lattice_a": t.lattice_a,
+                "lattice_b": t.lattice_b,
+                "lattice_c": t.lattice_c,
+                "lattice_alpha": t.lattice_alpha,
+                "lattice_beta": t.lattice_beta,
+                "lattice_gamma": t.lattice_gamma,
+                "volume": t.volume,
+                "elements": formula_els,
+            })
+        return result
+    finally:
+        db.close()
+
+
+def _apply_substitution(template: dict, element_constraints: Optional[list[str]] = None
+                        ) -> Optional[dict]:
+    formula = template["formula"]
+    counts = _parse_formula_counts(formula)
+    elements = list(counts.keys())
+
+    candidates = []
+    for target_el in elements:
+        subs = _get_substitutes(target_el)
+        if not subs:
+            continue
+        for sub in random.sample(subs, min(2, len(subs))):
+            if sub == target_el:
+                continue
+
+            new_counts = dict(counts)
+            new_counts[sub] = new_counts.pop(target_el)
+            new_formula = _formula_from_counts(new_counts)
+            subst = f"{target_el}->{sub}"
+
+            candidates.append({
+                "formula": new_formula,
+                "substitution": subst,
+                "template_formula": formula,
+            })
+
+            if len(candidates) >= 3:
+                break
+        if len(candidates) >= 3:
+            break
+
+    return random.choice(candidates) if candidates else None
 
 
 class MaterialsGenerator:
     def __init__(self):
         self.models = {}
+        self._template_cache = None
 
     async def generate_crystal(self, target_properties: Optional[dict] = None,
                                 element_constraints: Optional[list] = None,
                                 num_candidates: int = 10) -> list[dict]:
-        candidates = []
-        for i in range(num_candidates):
-            n_elements = random.choices([2, 3, 4, 5], weights=[4, 3, 2, 1])[0]
-            elements, stoich, formula = _assign_elements(n_elements, element_constraints)
-            proto = random.choice(PROTOTYPE_STRUCTURES)
-            sg = proto["sg"]
-            sys = proto["system"]
+        from app.core.trainer import predict_property
 
-            a = round(proto.get("a", 5.0) * random.uniform(0.8, 1.4), 3)
-            b = round(proto.get("b", proto.get("a", 5.0)) * random.uniform(0.8, 1.4), 3)
-            c = round(proto.get("c", proto.get("a", 5.0)) * random.uniform(0.8, 1.4), 3)
+        templates = _load_templates(element_constraints, max_templates=min(num_candidates * 10, 1000))
+
+        if not templates:
+            return []
+
+        candidates = []
+        seen_formulas = set()
+        attempts = 0
+        max_attempts = num_candidates * 20
+
+        while len(candidates) < num_candidates and attempts < max_attempts:
+            attempts += 1
+            template = random.choice(templates)
+            result = _apply_substitution(template, element_constraints)
+            if result is None:
+                continue
+
+            formula = result["formula"]
+            if formula in seen_formulas:
+                continue
+            seen_formulas.add(formula)
+
+            formula_els = list(_parse_formula_counts(formula).keys())
+            if element_constraints:
+                if not any(el in element_constraints for el in formula_els):
+                    continue
+                constraint_non_o = [e for e in element_constraints if e != "O"]
+                if constraint_non_o and not any(el in constraint_non_o for el in formula_els):
+                    continue
+
+            sg = template["space_group"]
+            sys = template["crystal_system"]
+            a = template["lattice_a"] or 5.0
+            b = template["lattice_b"] or a
+            c = template["lattice_c"] or a
+            alpha = template["lattice_alpha"] or 90
+            beta = template["lattice_beta"] or 90
+            gamma = template["lattice_gamma"] or 90
+            vol = a * b * c
 
             lattice = {"a": a, "b": b, "c": c}
-            if "beta" in proto:
-                lattice["beta"] = proto["beta"]
+            if beta and beta != 90:
+                lattice["beta"] = beta
+            if alpha and alpha != 90:
+                lattice["alpha"] = alpha
+            if gamma and gamma != 90:
+                lattice["gamma"] = gamma
 
-            from app.core.trainer import predict_property
-            vol = a * b * c
             gap, _ = predict_property(formula, "band_gap", crystal_system=sys, volume=vol)
             eform, _ = predict_property(formula, "formation_energy", crystal_system=sys, volume=vol)
 
-            gen_score = round(float(1.0 - abs(eform) / 3.0 * 0.5 + (1.0 - gap / 8.0) * 0.3 + random.uniform(0, 0.2)), 3)
-            gen_score = max(0.1, min(0.99, gen_score))
-            syn_score = round(float(0.3 + 0.4 * (1.0 - n_elements / 5.0) + random.uniform(0, 0.3)), 3)
-            syn_score = max(0.1, min(0.99, syn_score))
+            if eform > 0:
+                continue
 
+            stability = round(float(max(0, min(1, 1.0 - abs(eform) / 5.0))), 3)
+
+            target_score = 0.5
+            if target_properties:
+                target_gap = target_properties.get("band_gap")
+                if target_gap is not None:
+                    target_score = 1.0 - min(abs(gap - target_gap) / 5.0, 1.0)
+
+            gen_score = round(float(stability * 0.6 + target_score * 0.4), 3)
+
+            formula_els = list(_parse_formula_counts(formula).keys())
             candidates.append({
-                "id": f"gen_{i}_{abs(hash(formula)) % 10000:04d}",
+                "id": f"gen_{len(candidates)}_{abs(hash(formula)) % 10000:04d}",
                 "formula": formula,
                 "space_group": sg,
                 "crystal_system": sys,
                 "lattice_parameters": lattice,
-                "num_atoms": sum(stoich),
-                "elements": elements,
-                "stoichiometry": stoich,
+                "elements": formula_els,
                 "generation_score": gen_score,
-                "synthesis_score": syn_score,
+                "synthesis_score": round(float(0.5 + 0.3 * (1.0 - len(formula_els) / 6.0)), 3),
                 "predicted_band_gap": gap,
                 "predicted_formation_energy": eform,
+                "substitution": result["substitution"],
+                "template": result["template_formula"],
+                "stability_score": stability,
             })
 
         candidates.sort(key=lambda x: x["generation_score"], reverse=True)
-        return candidates
+        return candidates[:num_candidates]
 
     async def generate_composition(self, target_properties: Optional[dict] = None,
                                     num_candidates: int = 5) -> list[dict]:

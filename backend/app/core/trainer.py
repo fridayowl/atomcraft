@@ -8,6 +8,8 @@ import joblib
 
 MODELS_DIR = os.path.join(os.path.dirname(__file__), "models")
 
+CRYSTAL_SYSTEMS = ["cubic", "tetragonal", "hexagonal", "orthorhombic", "monoclinic", "triclinic"]
+
 
 def _generate_training_data(n_samples: int = 5000) -> tuple[np.ndarray, dict[str, np.ndarray]]:
     np.random.seed(42)
@@ -58,9 +60,6 @@ def _generate_training_data(n_samples: int = 5000) -> tuple[np.ndarray, dict[str
     return X, targets
 
 
-CRYSTAL_SYSTEMS = ["cubic", "tetragonal", "hexagonal", "orthorhombic", "monoclinic", "triclinic"]
-
-
 def _get_element_feature_vector(formula: str, crystal_system: str = "",
                                 volume: float = 0) -> np.ndarray:
     from app.core.composition_analyzer import CompositionAnalyzer, ELEMENT_DATA
@@ -106,7 +105,7 @@ def _get_element_feature_vector(formula: str, crystal_system: str = "",
     return np.concatenate([base, vol_feat, cs_onehot])
 
 
-def _load_real_training_data() -> tuple[list[np.ndarray], dict[str, list[float]]]:
+def _load_real_training_data() -> tuple[dict[str, list[np.ndarray]], dict[str, list[float]]]:
     try:
         from app.database import SessionLocal
         from app.models.material import Material, Property
@@ -209,7 +208,7 @@ def train_and_save_models(force_retrain: bool = False):
             "mae": round(mae, 4),
             "r2": round(r2, 4),
             "n_real": n_real,
-            "path": model_path,
+            "path": f"{prop_name}.joblib",
         }
         print(f"  {prop_name}: MAE={mae:.4f}, R²={r2:.4f}")
 
