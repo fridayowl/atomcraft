@@ -2,6 +2,21 @@ from typing import Optional
 from app.core.trainer import predict_property, load_prediction_model, _get_element_feature_vector
 from app.core.composition_analyzer import CompositionAnalyzer
 
+FEATURE_NAMES_56 = [
+    "n_elements", "has_oxygen", "has_transition_metal", "total_atoms",
+    "avg_group", "group_range", "avg_row", "row_range",
+    "avg_atomic_radius", "radius_range", "radius_std",
+    "avg_electronegativity", "electronegativity_range", "electronegativity_std",
+    "avg_atomic_mass", "mass_range", "mass_std",
+    "avg_ionization_energy", "ionization_energy_range",
+    "s_electrons", "p_electrons", "d_electrons", "f_electrons",
+    "n_metal", "n_nonmetal", "n_metalloid",
+    "n_alkali", "n_alkaline", "n_halogen", "n_noble_gas",
+    "log_volume",
+    "crystal_cubic", "crystal_tetragonal", "crystal_hexagonal",
+    "crystal_orthorhombic", "crystal_monoclinic", "crystal_triclinic",
+] + [f"reserved_{i}" for i in range(37, 56)]
+
 
 class PropertyPredictor:
     def __init__(self):
@@ -40,17 +55,15 @@ class PropertyPredictor:
     async def get_feature_importance(self, property_type: str) -> dict:
         model = self.models.get(property_type)
         if model and hasattr(model, "feature_importances_"):
-            feature_names = [
-                "n_elements", "has_oxygen", "has_transition_metal",
-                "avg_electronegativity", "electronegativity_range",
-                "avg_atomic_radius", "radius_range",
-                "avg_atomic_mass", "avg_valence_electrons", "total_atoms",
-            ]
             importances = model.feature_importances_
+            # Map only the 37 actual features (indices 0-36)
+            names = FEATURE_NAMES_56[:37]
+            imps = importances[:37] if len(importances) >= 37 else importances
+            fnames = names[:len(imps)]
             features = {name: round(float(imp), 4)
-                       for name, imp in sorted(
-                           zip(feature_names, importances),
-                           key=lambda x: x[1], reverse=True)}
+                       for name, imp in sorted(zip(fnames, imps),
+                                                key=lambda x: -x[1])
+                       if imp > 0.001}
             return {"property": property_type, "features": features}
 
         return {

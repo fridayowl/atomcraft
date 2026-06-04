@@ -41,3 +41,20 @@ async def generate_compositions(req: GenerateRequest):
         "candidates": candidates,
         "total": len(candidates),
     }
+
+
+@router.post("/denovo")
+async def generate_denovo(req: GenerateRequest):
+    candidates = await generator.generate_denovo(
+        target_properties=req.target_properties,
+        element_constraints=req.element_constraints,
+        num_candidates=req.num_candidates,
+    )
+    return {
+        "candidates": candidates,
+        "total": len(candidates),
+        "request": {
+            "target_properties": req.target_properties,
+            "element_constraints": req.element_constraints,
+        },
+    }

@@ -222,6 +222,8 @@ def train_and_save_models(force_retrain: bool = False):
     known_order = ["density", "band_gap", "formation_energy"]
     prop_names = sorted(targets_real.keys(), key=lambda p: (p not in known_order, -len(targets_real[p])))
 
+    from sklearn.model_selection import cross_val_score
+
     model_config = {}
     for prop_name in prop_names:
         Xr = X_real_dict.get(prop_name, [])
@@ -253,16 +255,34 @@ def train_and_save_models(force_retrain: bool = False):
         print(f" → {len(X)} samples")
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-        model = RandomForestRegressor(n_estimators=300, max_depth=20, random_state=42, n_jobs=-1)
+
+        # Adjust model complexity based on dataset size
+        if n_real < 5000:
+            n_est, max_d = 100, 12
+        elif n_real < 20000:
+            n_est, max_d = 200, 16
+        else:
+            n_est, max_d = 300, 20
+
+        model = RandomForestRegressor(n_estimators=n_est, max_depth=max_d, random_state=42, n_jobs=-1)
         model.fit(X_train, y_train)
 
         y_pred = model.predict(X_test)
         mae = mean_absolute_error(y_test, y_pred)
-        r2 = r2_score(y_test, y_pred)
+
+        # Cross-validated R² for small datasets
+        if n_real < 10000:
+            try:
+                cv_scores = cross_val_score(model, X_train, y_train, cv=5, scoring="r2")
+                r2 = float(np.mean(cv_scores))
+            except Exception:
+                r2 = r2_score(y_test, y_pred)
+        else:
+            r2 = r2_score(y_test, y_pred)
 
         joblib.dump(model, os.path.join(MODELS_DIR, f"{prop_name}.joblib"))
         model_config[prop_name] = {
-            "model": "RandomForestRegressor", "n_estimators": 300, "max_depth": 20,
+            "model": "RandomForestRegressor", "n_estimators": n_est, "max_depth": max_d,
             "mae": round(mae, 4), "r2": round(r2, 4), "n_real": n_real,
             "path": f"{prop_name}.joblib",
         }

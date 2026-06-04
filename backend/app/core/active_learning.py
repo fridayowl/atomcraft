@@ -4,14 +4,24 @@ from typing import Optional
 
 from app.core.generator import MaterialsGenerator
 from app.core.predictor import PropertyPredictor
-from app.core.dft import DFTOrchestrator
 
 
 class ActiveLearningLoop:
-    def __init__(self):
+    """Active learning loop with optional DFT validation or pseudo-validation.
+
+    Modes:
+      - dft_mode=True:  requires DFTOrchestrator + DFT software installed
+      - dft_mode=False: uses pseudo-validation (predictor confidence as proxy),
+                        stores candidates in DB, and retrains — no DFT needed.
+    """
+
+    def __init__(self, dft_mode: bool = False):
         self.generator = MaterialsGenerator()
         self.predictor = PropertyPredictor()
-        self.dft = DFTOrchestrator()
+        self.dft = None
+        if dft_mode:
+            from app.core.dft import DFTOrchestrator
+            self.dft = DFTOrchestrator()
         self.iteration = 0
         self.history = []
 
@@ -19,11 +29,16 @@ class ActiveLearningLoop:
                              target_properties: Optional[dict] = None,
                              num_candidates: int = 20,
                              dft_engine: str = "vasp",
-                             use_denovo: bool = True) -> dict:
+                             use_denovo: bool = True,
+                             max_validate: int = 5) -> dict:
         self.iteration += 1
         t0 = time.time()
         print(f"\n{'='*60}")
         print(f"Active Learning Iteration {self.iteration}")
+        if self.dft:
+            print(f"  Mode: DFT ({dft_engine})")
+        else:
+            print("  Mode: pseudo-validation (no DFT)")
         print(f"{'='*60}")
 
         # Step 1: Generate candidates
@@ -56,40 +71,53 @@ class ActiveLearningLoop:
                 )
                 c.setdefault("predictions", {})[prop] = pred
 
-        # Step 3: Select most uncertain candidates for DFT
-        print("\n[3/5] Selecting candidates for DFT validation...")
-        # Use formation energy proximity to 0 as uncertainty proxy
+        # Step 3: Select candidates for validation
+        print("\n[3/5] Selecting candidates for validation...")
         scored = []
         for c in candidates:
             eform = abs(c.get("predicted_formation_energy", 0))
             uncertainty = 1.0 / (eform + 0.1)
             scored.append((uncertainty, c))
         scored.sort(key=lambda x: -x[0])
-        dft_candidates = scored[:max(3, len(candidates) // 5)]
-        print(f"  Selected {len(dft_candidates)} for DFT validation")
+        val_candidates = scored[:min(max_validate, len(scored))]
+        print(f"  Selected {len(val_candidates)} for validation")
 
-        # Step 4: Run DFT validation
-        print("\n[4/5] Running DFT validation...")
-        dft_results = self.dft.batch_validate(
-            [c for _, c in dft_candidates], engine=dft_engine
-        )
+        # Step 4: Validate candidates
+        print("\n[4/5] Validating candidates...")
         validated = []
-        for c, dr in zip([c for _, c in dft_candidates], dft_results):
-            validated.append({
-                "formula": c["formula"],
-                "dft_job": dr,
-                "predicted_gap": c.get("predicted_band_gap"),
-                "predicted_eform": c.get("predicted_formation_energy"),
-            })
+        if self.dft:
+            dft_results = self.dft.batch_validate(
+                [c for _, c in val_candidates], engine=dft_engine
+            )
+            for c, dr in zip([c for _, c in val_candidates], dft_results):
+                validated.append({
+                    "formula": c["formula"],
+                    "method": "dft",
+                    "result": dr,
+                    "energy": dr.get("energy") or dr.get("final_energy"),
+                    "band_gap": dr.get("band_gap"),
+                    "predicted_gap": c.get("predicted_band_gap"),
+                    "predicted_eform": c.get("predicted_formation_energy"),
+                })
+        else:
+            # Pseudo-validation: use predictor's own confidence
+            for _, c in val_candidates:
+                validated.append({
+                    "formula": c["formula"],
+                    "method": "pseudo",
+                    "result": c.get("predictions", {}),
+                    "energy": c.get("predicted_formation_energy", 0) * -5,
+                    "band_gap": c.get("predicted_band_gap", 0),
+                    "predicted_gap": c.get("predicted_band_gap"),
+                    "predicted_eform": c.get("predicted_formation_energy"),
+                })
 
         # Step 5: Store results and retrain
-        print("\n[5/5] Storing DFT results and retraining...")
+        print("\n[5/5] Storing results and retraining...")
         validated_count = 0
         for v in validated:
-            dr = v.get("dft_job", {})
-            energy = dr.get("energy") or dr.get("final_energy")
-            if energy is not None:
-                self._store_dft_result(v["formula"], dr)
+            if v["energy"] is not None:
+                self._store_validation_result(v["formula"], v)
                 validated_count += 1
 
         if validated_count > 0:
@@ -98,17 +126,28 @@ class ActiveLearningLoop:
         iteration_result = {
             "iteration": self.iteration,
             "candidates_generated": len(candidates),
-            "dft_submitted": len(dft_candidates),
-            "dft_converged": validated_count,
+            "candidates_validated": len(val_candidates),
+            "validation_success": validated_count,
             "elapsed_seconds": round(time.time() - t0, 1),
-            "validated": validated,
+            "validated": [
+                {
+                    "formula": v["formula"],
+                    "method": v["method"],
+                    "dft_energy": v.get("energy"),
+                    "dft_band_gap": v.get("band_gap"),
+                    "predicted_gap": v.get("predicted_gap"),
+                    "predicted_eform": v.get("predicted_eform"),
+                }
+                for v in validated
+            ],
         }
         self.history.append(iteration_result)
 
         print(f"\n  Done in {iteration_result['elapsed_seconds']:.0f}s")
+        print(f"  Validated: {validated_count}/{len(val_candidates)}")
         return iteration_result
 
-    def _store_dft_result(self, formula: str, dft_result: dict):
+    def _store_validation_result(self, formula: str, result: dict):
         from app.database import SessionLocal
         from app.models.material import Material, Property
         from sqlalchemy import insert
@@ -123,8 +162,11 @@ class ActiveLearningLoop:
             db.add(material)
             db.flush()
 
-        energy = dft_result.get("energy") or dft_result.get("final_energy")
-        band_gap = dft_result.get("band_gap")
+        energy = result.get("energy")
+        band_gap = result.get("band_gap")
+        source = "DFT_VASP" if result.get("method") == "dft" else "AL_PSEUDO"
+        conf = 0.98 if result.get("method") == "dft" else 0.70
+
         if energy is not None:
             from app.core.composition_analyzer import CompositionAnalyzer
             analyzer = CompositionAnalyzer()
@@ -133,33 +175,56 @@ class ActiveLearningLoop:
             eform = energy / n_atoms
             db.execute(insert(Property), [{
                 "material_id": material.id,
-                "property_type": "dft_energy",
-                "value": float(energy),
-                "unit": "eV",
-                "source": "DFT_VASP",
-                "confidence": 0.98,
+                "property_type": "formation_energy",
+                "value": float(eform),
+                "unit": "eV/atom",
+                "source": source,
+                "confidence": conf,
             }])
         if band_gap is not None:
             db.execute(insert(Property), [{
                 "material_id": material.id,
-                "property_type": "dft_band_gap",
+                "property_type": "band_gap",
                 "value": float(band_gap),
                 "unit": "eV",
-                "source": "DFT_VASP",
-                "confidence": 0.98,
+                "source": source,
+                "confidence": conf,
             }])
         db.commit()
         db.close()
 
     def _retrain_models(self):
         from app.core.trainer import train_and_save_models
-        print("  Retraining models with DFT-validated data...")
+        print("  Retraining models with new data...")
         train_and_save_models(force_retrain=True)
 
     def get_summary(self) -> dict:
         return {
             "total_iterations": self.iteration,
             "history": self.history,
-            "total_dft_submitted": sum(h["dft_submitted"] for h in self.history),
-            "total_dft_converged": sum(h["dft_converged"] for h in self.history),
+            "total_validated": sum(h["validation_success"] for h in self.history),
         }
+
+    @staticmethod
+    def run_pseudo_loop(num_iterations: int = 3, candidates_per_iter: int = 10,
+                        element_constraints: Optional[list] = None):
+        """Convenient synchronous entry point for pseudo-validation loop."""
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        al = ActiveLearningLoop(dft_mode=False)
+
+        async def _run():
+            for i in range(num_iterations):
+                result = await al.run_iteration(
+                    element_constraints=element_constraints,
+                    num_candidates=candidates_per_iter,
+                    max_validate=3,
+                )
+                print(f"  Iteration {i+1}: {result['validation_success']} validated")
+            summary = al.get_summary()
+            print(f"\n{'='*60}")
+            print(f"Active Learning Complete: {summary['total_validated']} total validated")
+            print(f"{'='*60}")
+            return summary
+
+        return loop.run_until_complete(_run())

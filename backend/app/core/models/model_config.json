@@ -1,29 +1,29 @@
 {
-  "density": {
-    "model": "RandomForestRegressor",
-    "n_estimators": 300,
-    "max_depth": 20,
-    "mae": 0.2929,
-    "r2": 0.968,
-    "n_real": 104842,
-    "path": "density.joblib"
-  },
   "formation_energy": {
     "model": "RandomForestRegressor",
     "n_estimators": 300,
     "max_depth": 20,
-    "mae": 0.1769,
-    "r2": 0.936,
-    "n_real": 104842,
+    "mae": 0.1768,
+    "r2": 0.9371,
+    "n_real": 104845,
     "path": "formation_energy.joblib"
+  },
+  "density": {
+    "model": "RandomForestRegressor",
+    "n_estimators": 300,
+    "max_depth": 20,
+    "mae": 0.2928,
+    "r2": 0.9681,
+    "n_real": 104842,
+    "path": "density.joblib"
   },
   "band_gap": {
     "model": "RandomForestRegressor",
     "n_estimators": 300,
     "max_depth": 20,
-    "mae": 0.7322,
-    "r2": 0.5892,
-    "n_real": 52602,
+    "mae": 0.7334,
+    "r2": 0.5923,
+    "n_real": 52605,
     "path": "band_gap.joblib"
   },
   "energy_above_hull": {
@@ -31,7 +31,7 @@
     "n_estimators": 300,
     "max_depth": 20,
     "mae": 0.0927,
-    "r2": 0.7649,
+    "r2": 0.7652,
     "n_real": 104842,
     "path": "energy_above_hull.joblib"
   },
@@ -40,7 +40,7 @@
     "n_estimators": 300,
     "max_depth": 20,
     "mae": 0.2554,
-    "r2": 0.404,
+    "r2": 0.4041,
     "n_real": 104842,
     "path": "is_stable.joblib"
   },
@@ -48,53 +48,53 @@
     "model": "RandomForestRegressor",
     "n_estimators": 300,
     "max_depth": 20,
-    "mae": 3.0752,
-    "r2": 0.6617,
+    "mae": 3.0759,
+    "r2": 0.6615,
     "n_real": 104842,
     "path": "total_magnetization.joblib"
   },
   "homogeneous_poisson": {
     "model": "RandomForestRegressor",
-    "n_estimators": 300,
-    "max_depth": 20,
-    "mae": 0.0832,
-    "r2": 0.069,
+    "n_estimators": 200,
+    "max_depth": 16,
+    "mae": 0.0843,
+    "r2": 0.0417,
     "n_real": 9359,
     "path": "homogeneous_poisson.joblib"
   },
   "universal_anisotropy": {
     "model": "RandomForestRegressor",
-    "n_estimators": 300,
-    "max_depth": 20,
-    "mae": 1813.9286,
-    "r2": -0.1166,
+    "n_estimators": 200,
+    "max_depth": 16,
+    "mae": 1803.827,
+    "r2": -0.1655,
     "n_real": 9359,
     "path": "universal_anisotropy.joblib"
   },
   "e_electronic": {
     "model": "RandomForestRegressor",
-    "n_estimators": 300,
-    "max_depth": 20,
-    "mae": 3.2263,
-    "r2": 0.3765,
+    "n_estimators": 100,
+    "max_depth": 12,
+    "mae": 3.3348,
+    "r2": 0.2009,
     "n_real": 4958,
     "path": "e_electronic.joblib"
   },
   "e_ionic": {
     "model": "RandomForestRegressor",
-    "n_estimators": 300,
-    "max_depth": 20,
-    "mae": 8.5267,
-    "r2": 0.1434,
+    "n_estimators": 100,
+    "max_depth": 12,
+    "mae": 8.7905,
+    "r2": 0.1647,
     "n_real": 4958,
     "path": "e_ionic.joblib"
   },
   "e_total": {
     "model": "RandomForestRegressor",
-    "n_estimators": 300,
-    "max_depth": 20,
-    "mae": 13.257,
-    "r2": 0.1662,
+    "n_estimators": 100,
+    "max_depth": 12,
+    "mae": 13.6262,
+    "r2": 0.0869,
     "n_real": 4958,
     "path": "e_total.joblib"
   }
