@@ -135,6 +135,30 @@ def _apply_substitution(template: dict, element_constraints: Optional[list[str]]
     return random.choice(candidates) if candidates else None
 
 
+RANDOM_POOL = ["Li","Na","K","Mg","Ca","Fe","Co","Ni","Mn","Ti",
+                "Zr","Zn","Al","Si","O","S","F","Cl","C","N",
+                "V","Cr","Cu","Ga","Ge","Se","Br","Rb","Sr","Y",
+                "Nb","Mo","Ru","Rh","Pd","Ag","Cd","In","Sn","Sb",
+                "Te","I","Cs","Ba","La","Ce","Pr","Nd","Sm","Eu",
+                "Gd","Tb","Dy","Ho","Er","Tm","Yb","Lu","Hf","Ta",
+                "W","Re","Os","Ir","Pt","Au","Pb","Bi"]
+
+
+def _random_composition_dict(n_elements: int) -> dict[str, int]:
+    elements = random.sample(RANDOM_POOL, min(n_elements, len(RANDOM_POOL)))
+    counts = {}
+    for el in elements:
+        counts[el] = random.randint(1, 4)
+    return counts
+
+
+def _formula_from_counts(counts: dict[str, int]) -> str:
+    parts = []
+    for el, n in counts.items():
+        parts.append(f"{el}{n}" if n > 1 else el)
+    return "".join(parts)
+
+
 class MaterialsGenerator:
     def __init__(self):
         self.models = {}
@@ -225,6 +249,101 @@ class MaterialsGenerator:
                 "template": result["template_formula"],
                 "stability_score": stability,
             })
+
+        candidates.sort(key=lambda x: x["generation_score"], reverse=True)
+        return candidates[:num_candidates]
+
+    async def generate_denovo(self, target_properties: Optional[dict] = None,
+                               element_constraints: Optional[list] = None,
+                               num_candidates: int = 10) -> list[dict]:
+        from app.core.trainer import (
+            predict_property, predict_crystal_system, predict_lattice_parameters,
+            generate_crystal_structure, _parse_formula_counts, train_crystal_system_predictor,
+        )
+
+        # Train crystal system predictor on first call
+        try:
+            train_crystal_system_predictor()
+        except Exception:
+            pass
+
+        candidates = []
+        seen_formulas = set()
+        attempts = 0
+        max_attempts = num_candidates * 30
+
+        while len(candidates) < num_candidates and attempts < max_attempts:
+            attempts += 1
+            n_elements = random.choices([2, 3, 4, 5], weights=[3, 3, 2, 1])[0]
+            pool = element_constraints or RANDOM_POOL
+            if element_constraints:
+                # Generate from user's elements
+                selected = random.sample(pool, min(n_elements, len(pool)))
+                if "O" not in selected and random.random() > 0.5:
+                    selected.append("O")
+            else:
+                selected = random.sample(pool, min(n_elements, len(pool)))
+
+            counts = {}
+            for el in selected:
+                counts[el] = random.randint(1, 4)
+            formula = _formula_from_counts(counts)
+
+            if formula in seen_formulas:
+                continue
+            seen_formulas.add(formula)
+
+            formula_els = list(counts.keys())
+
+            try:
+                crystal_system, cs_conf = predict_crystal_system(formula)
+                lattice = predict_lattice_parameters(formula, crystal_system)
+            except Exception:
+                crystal_system = random.choice(["cubic", "tetragonal", "orthorhombic", "monoclinic", "triclinic", "hexagonal", "trigonal"])
+                lattice = {"a": 5.0, "b": 5.0, "c": 5.0}
+
+            vol = lattice["a"] * lattice["b"] * lattice["c"]
+
+            gap, _ = predict_property(formula, "band_gap", crystal_system=crystal_system, volume=vol)
+            eform, _ = predict_property(formula, "formation_energy", crystal_system=crystal_system, volume=vol)
+
+            if eform > 0:
+                continue
+
+            stability = round(float(max(0, min(1, 1.0 - abs(eform) / 5.0))), 3)
+
+            # Generate crystal structure via pymatgen
+            struct_info = None
+            try:
+                struct_info = generate_crystal_structure(
+                    formula, crystal_system=crystal_system, lattice=lattice)
+            except Exception:
+                pass
+
+            target_score = 0.5
+            if target_properties:
+                tg = target_properties.get("band_gap")
+                if tg is not None:
+                    target_score = 1.0 - min(abs(gap - tg) / 5.0, 1.0)
+
+            gen_score = round(float(stability * 0.6 + target_score * 0.4), 3)
+
+            cand = {
+                "id": f"denovo_{len(candidates)}_{abs(hash(formula)) % 10000:04d}",
+                "formula": formula,
+                "space_group": (struct_info or {}).get("space_group", "P1"),
+                "crystal_system": crystal_system,
+                "lattice_parameters": lattice,
+                "elements": formula_els,
+                "generation_score": gen_score,
+                "synthesis_score": round(float(0.5 + 0.3 * (1.0 - len(formula_els) / 6.0)), 3),
+                "predicted_band_gap": gap,
+                "predicted_formation_energy": eform,
+                "stability_score": stability,
+                "generation_method": "denovo",
+                "cif": (struct_info or {}).get("cif", ""),
+            }
+            candidates.append(cand)
 
         candidates.sort(key=lambda x: x["generation_score"], reverse=True)
         return candidates[:num_candidates]

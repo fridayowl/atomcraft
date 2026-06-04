@@ -6,10 +6,15 @@ from app.core.composition_analyzer import CompositionAnalyzer
 class PropertyPredictor:
     def __init__(self):
         self.models = {}
-        for prop in ["band_gap", "formation_energy", "density"]:
-            m = load_prediction_model(prop)
-            if m:
-                self.models[prop] = m
+        import json, os
+        config_path = os.path.join(os.path.dirname(__file__), "models", "model_config.json")
+        if os.path.exists(config_path):
+            with open(config_path) as f:
+                cfg = json.load(f)
+            for prop in cfg:
+                m = load_prediction_model(prop)
+                if m:
+                    self.models[prop] = m
 
     async def predict(self, formula: str, property_type: str,
                        composition: Optional[dict] = None,
