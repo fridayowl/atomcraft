@@ -7,8 +7,6 @@ import time
 import argparse
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from mp_api.client import MPRester
-
 
 def main():
     parser = argparse.ArgumentParser()
@@ -20,10 +18,20 @@ def main():
         print("ERROR: Set MP_API_KEY environment variable")
         sys.exit(1)
 
-    from app.database import SessionLocal
+    from app.utils.pymatgen_compat import ensure_pymatgen_compat
+    ensure_pymatgen_compat()
+    from mp_api.client import MPRester
+    from app.database import SessionLocal, init_db
     from app.models.material import Material, Property
 
-    client = MPRester(api_key=api_key)
+    try:
+        client = MPRester(api_key=api_key)
+    except Exception as exc:
+        print("ERROR: Materials Project client initialization failed.")
+        print(f"Client error: {exc}")
+        return
+
+    init_db()
     total = client.materials.summary.count()
     num_chunks = (total // 1000) + 1
     print(f"Total in MP: {total} materials ({num_chunks} chunks of 1000)")

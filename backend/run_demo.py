@@ -1,5 +1,6 @@
 import sys; sys.path.insert(0, "backend")
 import asyncio, json, time
+from pathlib import Path
 
 from app.core.generator import MaterialsGenerator
 from app.core.predictor import PropertyPredictor
@@ -133,6 +134,7 @@ log(f"Highest band gap candidate:      {highgap['formula']} ({highgap['band_gap_
 
 # Save results
 out = "\n".join(results)
-with open("backend/demo_results.txt", "w") as f:
+results_path = Path(__file__).resolve().parent / "demo_results.txt"
+with results_path.open("w") as f:
     f.write(out)
-print(f"\nDemo results saved to backend/demo_results.txt")
+print(f"\nDemo results saved to {results_path}")

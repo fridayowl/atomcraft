@@ -16,3 +16,10 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def init_db() -> None:
+    """Import models and create all tables for the current database URL."""
+    import app.models  # noqa: F401
+
+    Base.metadata.create_all(bind=engine)

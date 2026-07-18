@@ -15,7 +15,24 @@ source .venv/bin/activate
 pip install -r backend/requirements.txt
 ```
 
-## Step 2: Verify It Works
+## Step 2: Bootstrap the Database & Models
+
+> Run these once before using the app, demo, or frontend.
+
+```bash
+cd backend
+
+# Populate the database (requires MP_API_KEY)
+python scripts/fetch_mp_data.py --num 100
+
+# Optional: full import path
+python scripts/bulk_fetch_mp.py --retrain
+
+# Retrain the .joblib models from the populated DB
+python scripts/retrain_models.py
+```
+
+## Step 3: Verify It Works
 
 ```bash
 # Check database loads (104,842 materials)
@@ -43,7 +60,7 @@ Materials: 104842
 BaTiO3 band gap = 2.197 eV
 ```
 
-## Step 3: Run the Demo (Cathode Discovery)
+## Step 4: Run the Demo (Cathode Discovery)
 
 ```bash
 cd atomcraft
@@ -62,7 +79,7 @@ This runs the full pipeline:
 
 Takes ~5-10 min on a modern laptop.
 
-## Step 4: Try Your Own Exploration
+## Step 5: Try Your Own Exploration
 
 ### Quick one-liners:
 

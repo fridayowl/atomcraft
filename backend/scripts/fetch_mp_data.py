@@ -16,9 +16,55 @@ import json
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.core.materials_project import mp_client
-from app.database import SessionLocal
+from app.database import SessionLocal, init_db
 from app.models.material import Material, Composition, Property
 from app.core.trainer import train_and_save_models
+from app.utils.pymatgen_compat import ensure_pymatgen_compat
+
+
+def _check_materials_project_client() -> bool:
+    init_error = getattr(mp_client, "_init_error", None)
+    if init_error:
+        print("ERROR: Materials Project client initialization failed.")
+        print(f"Client error: {init_error}")
+        print("")
+        print(
+            "This usually means the MP API key is invalid or the installed "
+            "mp-api/emmet-core/pymatgen versions are incompatible."
+        )
+        return False
+
+    try:
+        ensure_pymatgen_compat()
+        from mp_api.client import MPRester
+    except ModuleNotFoundError as exc:
+        print("ERROR: Materials Project client could not be imported.")
+        print(f"Import error: {exc}")
+        print("")
+        print(
+            "This usually means the installed mp-api/emmet-core/pymatgen "
+            "versions are incompatible."
+        )
+        print(
+            "In this checkout, the pinned pymatgen version is not enough by itself "
+            "to guarantee that mp_api.client imports cleanly."
+        )
+        print("")
+        print("Try:")
+        print("  1. Recreate the venv from backend/requirements.txt")
+        print("  2. Check `python -c \"from mp_api.client import MPRester\"`")
+        print("  3. If that fails, update the mp-api/emmet-core/pymatgen pins together")
+        return False
+
+    try:
+        if mp_client.api_key:
+            MPRester(api_key=mp_client.api_key)
+    except Exception as exc:
+        print("ERROR: Materials Project client initialization failed.")
+        print(f"Import succeeded, but MPRester could not be created: {exc}")
+        return False
+
+    return True
 
 
 async def fetch_and_store(num_materials: int = 100, retrain: bool = False):
@@ -28,6 +74,10 @@ async def fetch_and_store(num_materials: int = 100, retrain: bool = False):
         print("Then: export MP_API_KEY='your_key'")
         return
 
+    if not _check_materials_project_client():
+        return
+
+    init_db()
     print(f"Fetching up to {num_materials} materials from Materials Project...")
 
     data = []

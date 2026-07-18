@@ -301,7 +301,25 @@ source .venv/bin/activate
 pip install -r backend/requirements.txt
 ```
 
-### Step 2: Verify the Database & Models
+### Step 2: Bootstrap the Database & Models
+
+> The app expects a populated SQLite database and trained model files.
+> Run these once before using the demo, API, or frontend.
+
+```bash
+cd backend
+
+# Populate the Materials Project database (requires MP_API_KEY)
+python scripts/fetch_mp_data.py --num 100
+
+# Optional: full import path
+python scripts/bulk_fetch_mp.py --retrain
+
+# If you already have data and just want to retrain the .joblib models
+python scripts/retrain_models.py
+```
+
+### Step 3: Verify the Database & Models
 
 ```bash
 cd backend
@@ -330,7 +348,7 @@ Materials in DB: 104842
 BaTiO3 band gap = 2.197 eV (confidence: 0.850)
 ```
 
-### Step 3: Run the Demo
+### Step 4: Run the Demo
 
 ```bash
 python backend/run_demo.py
@@ -345,7 +363,7 @@ This runs the full cathode discovery pipeline:
 6. Generates VASP input files for the best candidate
 7. Runs 1 active learning iteration (adds 3 pseudo-validated samples + retrains all 11 models)
 
-### Step 4: Start the Full Stack (Backend + Frontend)
+### Step 5: Start the Full Stack (Backend + Frontend)
 
 **Option A: Helper script**
 ```bash

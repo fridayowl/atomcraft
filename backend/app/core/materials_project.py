@@ -1,5 +1,6 @@
 from typing import Optional
 from app.config import settings
+from app.utils.pymatgen_compat import ensure_pymatgen_compat
 
 
 MP_API_KEY_ENV = "MP_API_KEY"
@@ -14,20 +15,25 @@ class MaterialsProjectClient:
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or get_mp_api_key()
         self._mprester = None
+        self._init_error = None
         if self.api_key:
             try:
+                ensure_pymatgen_compat()
                 from mp_api.client import MPRester
                 self._mprester = MPRester(api_key=self.api_key)
-            except ImportError:
+            except Exception as exc:
+                self._init_error = str(exc)
                 self._mprester = None
 
     def _get_rester(self):
         if not self._mprester and self.api_key:
             try:
+                ensure_pymatgen_compat()
                 from mp_api.client import MPRester
                 self._mprester = MPRester(api_key=self.api_key)
-            except ImportError:
-                pass
+                self._init_error = None
+            except Exception as exc:
+                self._init_error = str(exc)
         return self._mprester
 
     async def search_materials(
