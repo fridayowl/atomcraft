@@ -2,7 +2,7 @@ fastapi==0.111.0
 uvicorn[standard]==0.30.1
 sqlalchemy==2.0.31
 alembic==1.13.1
-pydantic==2.7.4
+pydantic==2.13.4
 pydantic-settings==2.3.4
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
@@ -22,7 +22,8 @@ matplotlib==3.9.0
 plotly==5.22.0
 networkx==3.3
 psycopg2-binary==2.9.9
-mp-api==0.41.2
+mp-api==0.46.4
+emmet-core==0.87.1
 weasyprint==62.3
 pytest==8.2.2
 pytest-asyncio==0.23.7
